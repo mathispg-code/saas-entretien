@@ -616,6 +616,12 @@ export default function Home() {
           <Link href="/confidentialite" className="hover:text-slate-600">
             Politique de confidentialité
           </Link>
+          <a
+            href="mailto:ton-email@exemple.com?subject=Retour%20sur%20EntretienIA"
+            className="hover:text-slate-600"
+          >
+            Un bug ? Une suggestion ?
+          </a>
         </div>
       </footer>
     </div>
