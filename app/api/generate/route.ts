@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
@@ -7,6 +8,16 @@ export const runtime = "nodejs";
 
 const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
 const DEFAULT_QUESTIONS = 10;
+
+const VARIATION_ANGLES = [
+  "Mets l'accent sur des questions techniques précises et approfondies, tout en gardant une ou deux questions comportementales.",
+  "Privilégie les questions comportementales et les mises en situation concrètes (méthode STAR), avec moins de questions purement techniques.",
+  "Accorde une place importante aux questions sur la culture d'entreprise, les valeurs et la motivation à rejoindre l'entreprise.",
+  "Explore davantage les questions de projection à moyen terme (évolution du candidat, ambitions, vision du poste dans 1 à 2 ans).",
+  "Mets l'accent sur les questions liées à la collaboration en équipe et à la communication avec d'autres services.",
+  "Privilégie des mises en situation variées et originales plutôt que des questions génériques classiques.",
+  "Insiste sur les points les plus spécifiques et différenciants de cette fiche de poste plutôt que sur des questions standards du secteur.",
+] as const;
 
 function buildQuestionsSchema(count: number) {
   return z.object({
@@ -26,8 +37,9 @@ function buildSystemPrompt(count: number) {
 On te fournit le texte (ou le document) d'une fiche de poste.
 Ta tâche : à partir des compétences, responsabilités et exigences mentionnées, génère une liste d'exactement ${count} questions d'entretien probables qu'un recruteur poserait pour ce poste précis. Ce nombre est impératif : ni plus, ni moins.
 Pour chaque question, donne un conseil court (1 à 2 phrases) sur la manière d'y répondre efficacement.
-Varie les types de questions (technique, comportemental, motivation, mise en situation) en fonction de ce que la fiche de poste met en avant.
+Varie les types de questions (technique, comportemental, motivation, mise en situation, culture d'entreprise) en fonction de ce que la fiche de poste met en avant.
 Si le CV d'un candidat est fourni en plus de la fiche de poste, personnalise chaque conseil en t'appuyant sur ses compétences, expériences et réalisations réelles (par exemple en suggérant de mentionner tel projet ou telle compétence précise pertinente pour la question). Si aucun CV n'est fourni, donne des conseils génériques mais toujours concrets et actionnables.
+Important : si cette même fiche de poste a déjà été utilisée pour une génération précédente, les nouvelles questions doivent être différentes — varie l'angle abordé, l'ordre, la formulation et les exemples suggérés dans les conseils. Ne reformule jamais une génération précédente à l'identique. Le message utilisateur te donnera une consigne d'orientation à privilégier pour cette génération précise ; suis-la sans jamais réduire la pertinence des questions par rapport à la fiche de poste (et au CV le cas échéant) — la variété porte sur l'angle et la formulation, jamais sur la pertinence.
 Réponds en français.`;
 }
 
@@ -111,11 +123,20 @@ export async function POST(request: Request) {
     });
   }
 
+  const variationId = randomUUID().slice(0, 8);
+  const orientation =
+    VARIATION_ANGLES[Math.floor(Math.random() * VARIATION_ANGLES.length)];
+
   userContent.push({
     type: "text",
     text: cvBase64
       ? `Génère exactement ${questionCount} questions d'entretien pour ce poste, avec pour chaque question un conseil personnalisé au profil réel du candidat décrit dans son CV.`
       : `Génère exactement ${questionCount} questions d'entretien pour ce poste, avec un conseil pour chacune.`,
+  });
+
+  userContent.push({
+    type: "text",
+    text: `Consigne d'orientation pour cette génération (id ${variationId}) : ${orientation} Cette orientation ne doit jamais réduire la pertinence des questions par rapport à la fiche de poste.`,
   });
 
   const client = new Anthropic(
