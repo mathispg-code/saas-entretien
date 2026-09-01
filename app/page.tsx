@@ -2,6 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Lock } from "lucide-react";
+import {
+  FREE_TRIAL_LOCKED_MESSAGE,
+  FREE_TRIAL_QUESTION_COUNT,
+  hasUsedFreeTrial,
+  markFreeTrialUsed,
+} from "./lib/free-trial";
 
 type Question = {
   question: string;
@@ -118,14 +124,6 @@ function ClockIcon({ className }: { className?: string }) {
   );
 }
 
-function SparkleIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-      <path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2Z" />
-    </svg>
-  );
-}
-
 function CheckIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -147,14 +145,20 @@ export default function Home() {
   const [jobText, setJobText] = useState("");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [cvFile, setCvFile] = useState<File | null>(null);
-  const [questionCount, setQuestionCount] = useState(10);
+  const [questionCount, setQuestionCount] = useState(FREE_TRIAL_QUESTION_COUNT);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[] | null>(null);
   const [mastered, setMastered] = useState<Set<number>>(new Set());
+  // Limitation temporaire "un essai gratuit par appareil" — voir app/lib/free-trial.ts
+  const [trialUsed, setTrialUsed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cvInputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setTrialUsed(hasUsedFreeTrial());
+  }, []);
 
   function toggleMastered(index: number) {
     setMastered((prev) => {
@@ -181,6 +185,12 @@ export default function Home() {
   async function handleGenerate() {
     setError(null);
     setQuestions(null);
+
+    // Garde-fou : le bouton est désactivé dans ce cas, mais on protège aussi
+    // l'appel API directement. Voir app/lib/free-trial.ts.
+    if (trialUsed) {
+      return;
+    }
 
     if (!canSubmit) {
       setError("Merci de coller le texte de la fiche de poste ou d'importer un PDF.");
@@ -225,6 +235,8 @@ export default function Home() {
 
       setQuestions(data.questions);
       setMastered(new Set());
+      markFreeTrialUsed();
+      setTrialUsed(true);
     } catch {
       setError("Impossible de contacter le serveur. Réessaie.");
     } finally {
@@ -407,22 +419,35 @@ export default function Home() {
                 Nombre de questions
               </p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {QUESTION_COUNT_OPTIONS.map((count) => (
-                  <button
-                    key={count}
-                    type="button"
-                    onClick={() => setQuestionCount(count)}
-                    aria-pressed={questionCount === count}
-                    className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                      questionCount === count
-                        ? "border-emerald-500 bg-emerald-500 text-white"
-                        : "border-white/15 bg-transparent text-slate-300 hover:border-white/30 hover:bg-white/5"
-                    }`}
-                  >
-                    {count} questions
-                  </button>
-                ))}
+                {QUESTION_COUNT_OPTIONS.map((count) => {
+                  // Essai gratuit limité à 5 questions — voir app/lib/free-trial.ts.
+                  const optionDisabled =
+                    trialUsed || count !== FREE_TRIAL_QUESTION_COUNT;
+                  return (
+                    <button
+                      key={count}
+                      type="button"
+                      onClick={() => setQuestionCount(count)}
+                      disabled={optionDisabled}
+                      aria-pressed={questionCount === count}
+                      className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                        questionCount === count && !trialUsed
+                          ? "border-emerald-500 bg-emerald-500 text-white"
+                          : "border-white/15 bg-transparent text-slate-300 hover:border-white/30 hover:bg-white/5"
+                      } ${optionDisabled ? "cursor-not-allowed opacity-40 hover:border-white/15 hover:bg-transparent" : ""}`}
+                    >
+                      {count} questions
+                    </button>
+                  );
+                })}
               </div>
+              {!trialUsed && (
+                <p className="mt-2 text-xs text-slate-500">
+                  Essai gratuit limité à {FREE_TRIAL_QUESTION_COUNT} questions.
+                  Les autres options seront débloquées avec le système de
+                  comptes à venir.
+                </p>
+              )}
             </div>
 
             <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-xs text-slate-500">
@@ -434,13 +459,18 @@ export default function Home() {
             <button
               type="button"
               onClick={handleGenerate}
-              disabled={!canSubmit || loading}
+              disabled={!canSubmit || loading || trialUsed}
               className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3.5 text-sm font-semibold text-navy-950 shadow-[0_0_35px_-8px_rgba(16,185,129,0.7)] transition hover:bg-emerald-400 hover:shadow-[0_0_45px_-6px_rgba(16,185,129,0.85)] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-500 disabled:shadow-none"
             >
               {loading ? (
                 <>
                   <SpinnerIcon className="h-4 w-4" />
                   Génération en cours…
+                </>
+              ) : trialUsed ? (
+                <>
+                  <Lock className="h-4 w-4" />
+                  Génération gratuite déjà utilisée
                 </>
               ) : (
                 <>
@@ -459,10 +489,6 @@ export default function Home() {
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-xs text-slate-400 sm:text-sm">
             <div className="flex items-center gap-2">
-              <SparkleIcon className="h-4 w-4 text-emerald-400" />
-              100% gratuit à tester
-            </div>
-            <div className="flex items-center gap-2">
               <UserIcon className="h-4 w-4 text-emerald-400" />
               CV optionnel
             </div>
@@ -473,6 +499,15 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {trialUsed && !(questions && questions.length > 0) && (
+        <main className="mx-auto max-w-3xl px-4 pb-16 pt-10">
+          <div className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+            <Lock className="mx-auto h-8 w-8 text-slate-400" />
+            <p className="mt-3 text-slate-700">{FREE_TRIAL_LOCKED_MESSAGE}</p>
+          </div>
+        </main>
+      )}
 
       {questions && questions.length > 0 && (
         <main ref={resultsRef} className="mx-auto max-w-3xl scroll-mt-20 px-4 pb-16 pt-10">
