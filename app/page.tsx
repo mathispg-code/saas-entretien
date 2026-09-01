@@ -1,0 +1,483 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
+type Question = {
+  question: string;
+  conseil: string;
+};
+
+type Mode = "text" | "pdf";
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // result is "data:application/pdf;base64,XXXX" — keep only the base64 part
+      const base64 = result.split(",")[1] ?? "";
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function DocumentIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+      <path d="M6 21h12a1 1 0 0 0 1-1V7l-5-5H6a1 1 0 0 0-1 1v17a1 1 0 0 0 1 1Z" />
+      <path d="M9 13h6M9 17h6" />
+    </svg>
+  );
+}
+
+function UserIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6" />
+    </svg>
+  );
+}
+
+function LightbulbIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M9 18h6" />
+      <path d="M10 22h4" />
+      <path d="M12 2a6 6 0 0 0-3.5 10.9c.5.4.9 1 1 1.6l.2 1.5h4.6l.2-1.5c.1-.6.5-1.2 1-1.6A6 6 0 0 0 12 2Z" />
+    </svg>
+  );
+}
+
+function SpinnerIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={`animate-spin ${className ?? ""}`}>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" opacity="0.25" />
+      <path
+        d="M21 12a9 9 0 0 0-9-9"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function ZapIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" />
+    </svg>
+  );
+}
+
+function ClockIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3.5 2" />
+    </svg>
+  );
+}
+
+function SparkleIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2Z" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
+export default function Home() {
+  const [mode, setMode] = useState<Mode>("text");
+  const [jobText, setJobText] = useState("");
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [cvFile, setCvFile] = useState<File | null>(null);
+  const [questionCount, setQuestionCount] = useState(10);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [questions, setQuestions] = useState<Question[] | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cvInputRef = useRef<HTMLInputElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (questions && questions.length > 0) {
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [questions]);
+
+  const canSubmit =
+    (mode === "text" && jobText.trim().length > 0) ||
+    (mode === "pdf" && pdfFile !== null);
+
+  async function handleGenerate() {
+    setError(null);
+    setQuestions(null);
+
+    if (!canSubmit) {
+      setError("Merci de coller le texte de la fiche de poste ou d'importer un PDF.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const payload: {
+        text?: string;
+        pdfBase64?: string;
+        pdfFilename?: string;
+        cvBase64?: string;
+        cvFilename?: string;
+        questionCount?: number;
+      } = { questionCount };
+
+      if (mode === "text") {
+        payload.text = jobText;
+      } else if (pdfFile) {
+        payload.pdfBase64 = await fileToBase64(pdfFile);
+        payload.pdfFilename = pdfFile.name;
+      }
+
+      if (cvFile) {
+        payload.cvBase64 = await fileToBase64(cvFile);
+        payload.cvFilename = cvFile.name;
+      }
+
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? "Une erreur est survenue.");
+        return;
+      }
+
+      setQuestions(data.questions);
+    } catch {
+      setError("Impossible de contacter le serveur. Réessaie.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    if (file && file.type !== "application/pdf") {
+      setError("Merci d'importer un fichier PDF.");
+      setPdfFile(null);
+      return;
+    }
+    setError(null);
+    setPdfFile(file);
+  }
+
+  function handleCvFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    if (file && file.type !== "application/pdf") {
+      setError("Merci d'importer un CV au format PDF.");
+      setCvFile(null);
+      return;
+    }
+    setError(null);
+    setCvFile(file);
+  }
+
+  function handleRemoveCv() {
+    setCvFile(null);
+    if (cvInputRef.current) {
+      cvInputRef.current.value = "";
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-navy-900/70 backdrop-blur-md">
+        <div className="mx-auto max-w-5xl px-4 py-4">
+          <span className="text-lg font-bold tracking-tight text-white">
+            Entretien<span className="text-emerald-400">IA</span>
+          </span>
+        </div>
+      </header>
+
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#0F2E4C] to-[#050B14] px-4 pb-16 pt-14 sm:pb-20 sm:pt-20">
+        <div className="mx-auto max-w-3xl text-center">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium text-emerald-300 backdrop-blur-sm sm:text-sm">
+            <ZapIcon className="h-3.5 w-3.5" />
+            Générateur IA gratuit
+          </div>
+
+          <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-5xl sm:leading-[1.15]">
+            <span className="bg-gradient-to-b from-white to-slate-300 bg-clip-text text-transparent">
+              Des questions d&apos;entretien{" "}
+            </span>
+            <span className="bg-gradient-to-r from-emerald-400 to-emerald-300 bg-clip-text text-transparent">
+              sur mesure
+            </span>
+            <span className="bg-gradient-to-b from-white to-slate-300 bg-clip-text text-transparent">
+              , en quelques secondes
+            </span>
+          </h1>
+
+          <p className="mx-auto mt-5 max-w-xl text-sm text-slate-300 sm:text-base">
+            Colle une fiche de poste, ajoute ton CV si tu veux des conseils sur
+            mesure, et prépare-toi sereinement pour ton entretien.
+          </p>
+
+          <div className="mt-10 rounded-3xl border border-white/10 bg-white/[0.04] p-5 text-left shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-8">
+            <div className="mb-3 flex items-center gap-2">
+              <DocumentIcon className="h-5 w-5 text-emerald-400" />
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-200">
+                Fiche de poste
+              </h2>
+            </div>
+
+            <div className="mb-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setMode("text")}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                  mode === "text"
+                    ? "bg-emerald-500 text-navy-950"
+                    : "bg-white/5 text-slate-300 hover:bg-white/10"
+                }`}
+              >
+                Coller le texte
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("pdf")}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                  mode === "pdf"
+                    ? "bg-emerald-500 text-navy-950"
+                    : "bg-white/5 text-slate-300 hover:bg-white/10"
+                }`}
+              >
+                Importer un PDF
+              </button>
+            </div>
+
+            {mode === "text" ? (
+              <textarea
+                value={jobText}
+                onChange={(e) => setJobText(e.target.value)}
+                placeholder="Colle ici le texte de la fiche de poste…"
+                rows={10}
+                className="w-full resize-y rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white placeholder:text-slate-400 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30"
+              />
+            ) : (
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  onChange={handleFileChange}
+                  className="block w-full text-sm text-slate-300 file:mr-4 file:rounded-lg file:border-0 file:bg-emerald-500 file:px-4 file:py-2 file:text-sm file:font-medium file:text-navy-950 hover:file:bg-emerald-400"
+                />
+                {pdfFile && (
+                  <p className="mt-2 text-sm text-slate-300">
+                    Fichier sélectionné : {pdfFile.name}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="mt-6 rounded-xl border border-dashed border-white/15 bg-white/[0.03] p-4 sm:p-5">
+              <div className="flex flex-wrap items-center gap-2">
+                <UserIcon className="h-5 w-5 text-slate-400" />
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
+                  Votre CV
+                </h2>
+                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium normal-case tracking-normal text-slate-300">
+                  Optionnel
+                </span>
+              </div>
+              <p className="mt-1 text-sm text-slate-400">
+                Pour des conseils personnalisés à ton profil. Sinon, les
+                conseils resteront génériques.
+              </p>
+              <input
+                ref={cvInputRef}
+                type="file"
+                accept="application/pdf"
+                onChange={handleCvFileChange}
+                className="mt-3 block w-full text-sm text-slate-300 file:mr-4 file:rounded-lg file:border file:border-white/20 file:bg-white/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-white/20"
+              />
+              {cvFile && (
+                <p className="mt-2 text-sm text-slate-300">
+                  CV sélectionné : {cvFile.name}{" "}
+                  <button
+                    type="button"
+                    onClick={handleRemoveCv}
+                    className="ml-2 font-medium text-emerald-400 underline hover:text-emerald-300"
+                  >
+                    Retirer
+                  </button>
+                </p>
+              )}
+            </div>
+
+            <div className="mt-6">
+              <div className="mb-2 flex items-center justify-between">
+                <label htmlFor="question-count" className="text-sm font-medium text-slate-300">
+                  Nombre de questions
+                </label>
+                <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-sm font-semibold text-emerald-300">
+                  {questionCount} questions
+                </span>
+              </div>
+              <input
+                id="question-count"
+                type="range"
+                min={6}
+                max={20}
+                step={2}
+                value={questionCount}
+                onChange={(e) => setQuestionCount(Number(e.target.value))}
+                className="h-2 w-full cursor-pointer appearance-none rounded-full bg-white/10 accent-emerald-500"
+              />
+              <div className="mt-1 flex justify-between text-xs text-slate-500">
+                <span>6</span>
+                <span>20</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={!canSubmit || loading}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3.5 text-sm font-semibold text-navy-950 shadow-[0_0_35px_-8px_rgba(16,185,129,0.7)] transition hover:bg-emerald-400 hover:shadow-[0_0_45px_-6px_rgba(16,185,129,0.85)] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-500 disabled:shadow-none"
+            >
+              {loading ? (
+                <>
+                  <SpinnerIcon className="h-4 w-4" />
+                  Génération en cours…
+                </>
+              ) : (
+                <>
+                  <ZapIcon className="h-4 w-4" />
+                  Générer les questions
+                </>
+              )}
+            </button>
+
+            {error && (
+              <p className="mt-4 rounded-lg border border-rose-400/30 bg-rose-500/10 p-3 text-sm text-rose-300">
+                {error}
+              </p>
+            )}
+          </div>
+
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-xs text-slate-400 sm:text-sm">
+            <div className="flex items-center gap-2">
+              <SparkleIcon className="h-4 w-4 text-emerald-400" />
+              100% gratuit à tester
+            </div>
+            <div className="flex items-center gap-2">
+              <UserIcon className="h-4 w-4 text-emerald-400" />
+              CV optionnel
+            </div>
+            <div className="flex items-center gap-2">
+              <ClockIcon className="h-4 w-4 text-emerald-400" />
+              Résultat en quelques secondes
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {questions && questions.length > 0 && (
+        <main ref={resultsRef} className="mx-auto max-w-3xl scroll-mt-20 px-4 pb-16 pt-10">
+          <section>
+            <div className="mb-4 inline-flex animate-fade-in items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
+              <CheckIcon className="h-4 w-4" />
+              {questions.length} questions générées
+            </div>
+            <h2 className="mb-4 text-lg font-semibold text-navy-800">
+              Vos questions d&apos;entretien
+            </h2>
+            <div className="space-y-4">
+              {questions.map((q, i) => (
+                <div
+                  key={i}
+                  className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md sm:p-6"
+                >
+                  <div className="flex gap-3 sm:gap-4">
+                    <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-navy-600 text-sm font-bold text-white sm:h-9 sm:w-9">
+                      {i + 1}
+                    </span>
+                    <p className="pt-0.5 font-semibold text-slate-900 sm:text-lg">
+                      {q.question}
+                    </p>
+                  </div>
+                  <div className="ml-11 mt-3 flex gap-2 rounded-lg border-l-4 border-emerald-500 bg-emerald-50 p-3 sm:ml-[52px] sm:p-4">
+                    <LightbulbIcon className="mt-0.5 h-4 w-4 flex-none text-emerald-600" />
+                    <p className="text-sm text-slate-700">
+                      <span className="font-semibold text-emerald-700">
+                        Conseil :{" "}
+                      </span>
+                      {q.conseil}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </main>
+      )}
+    </div>
+  );
+}
