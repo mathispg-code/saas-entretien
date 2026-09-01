@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Lock } from "lucide-react";
 import {
   FREE_TRIAL_LOCKED_MESSAGE,
@@ -17,6 +18,9 @@ type Question = {
 type Mode = "text" | "pdf";
 
 const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const GENERATION_TIMEOUT_MS = 45_000;
+const GENERIC_ERROR_MESSAGE = "Une erreur est survenue, réessaie dans quelques instants.";
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -220,16 +224,36 @@ export default function Home() {
         payload.cvFilename = cvFile.name;
       }
 
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), GENERATION_TIMEOUT_MS);
 
-      const data = await res.json();
+      let res: Response;
+      try {
+        res = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      let data: { questions?: Question[]; error?: string };
+      try {
+        data = await res.json();
+      } catch {
+        setError(GENERIC_ERROR_MESSAGE);
+        return;
+      }
 
       if (!res.ok) {
-        setError(data.error ?? "Une erreur est survenue.");
+        setError(data.error ?? GENERIC_ERROR_MESSAGE);
+        return;
+      }
+
+      if (!data.questions) {
+        setError(GENERIC_ERROR_MESSAGE);
         return;
       }
 
@@ -238,7 +262,7 @@ export default function Home() {
       markFreeTrialUsed();
       setTrialUsed(true);
     } catch {
-      setError("Impossible de contacter le serveur. Réessaie.");
+      setError(GENERIC_ERROR_MESSAGE);
     } finally {
       setLoading(false);
     }
@@ -251,6 +275,14 @@ export default function Home() {
       setPdfFile(null);
       return;
     }
+    if (file && file.size > MAX_FILE_SIZE_BYTES) {
+      setError("Le fichier est trop volumineux, 5 Mo maximum.");
+      setPdfFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
     setError(null);
     setPdfFile(file);
   }
@@ -260,6 +292,14 @@ export default function Home() {
     if (file && file.type !== "application/pdf") {
       setError("Merci d'importer un CV au format PDF.");
       setCvFile(null);
+      return;
+    }
+    if (file && file.size > MAX_FILE_SIZE_BYTES) {
+      setError("Le fichier est trop volumineux, 5 Mo maximum.");
+      setCvFile(null);
+      if (cvInputRef.current) {
+        cvInputRef.current.value = "";
+      }
       return;
     }
     setError(null);
@@ -567,6 +607,17 @@ export default function Home() {
           </section>
         </main>
       )}
+
+      <footer className="border-t border-slate-200 px-4 py-6">
+        <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-x-6 gap-y-2 text-xs text-slate-400">
+          <Link href="/mentions-legales" className="hover:text-slate-600">
+            Mentions légales
+          </Link>
+          <Link href="/confidentialite" className="hover:text-slate-600">
+            Politique de confidentialité
+          </Link>
+        </div>
+      </footer>
     </div>
   );
 }

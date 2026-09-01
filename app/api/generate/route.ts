@@ -8,6 +8,11 @@ export const runtime = "nodejs";
 
 const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
 const DEFAULT_QUESTIONS = 10;
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+
+function base64ByteLength(base64: string): number {
+  return Math.ceil((base64.length * 3) / 4);
+}
 
 const VARIATION_ANGLES = [
   "Mets l'accent sur des questions techniques précises et approfondies, tout en gardant une ou deux questions comportementales.",
@@ -83,6 +88,20 @@ export async function POST(request: Request) {
         error: `Le nombre de questions doit être l'une des valeurs suivantes : ${QUESTION_COUNT_OPTIONS.join(", ")}.`,
       },
       { status: 400 },
+    );
+  }
+
+  if (pdfBase64 && base64ByteLength(pdfBase64) > MAX_FILE_SIZE_BYTES) {
+    return NextResponse.json(
+      { error: "Le fichier est trop volumineux, 5 Mo maximum." },
+      { status: 413 },
+    );
+  }
+
+  if (cvBase64 && base64ByteLength(cvBase64) > MAX_FILE_SIZE_BYTES) {
+    return NextResponse.json(
+      { error: "Le fichier est trop volumineux, 5 Mo maximum." },
+      { status: 413 },
     );
   }
 
@@ -179,17 +198,26 @@ export async function POST(request: Request) {
       );
     }
     if (error instanceof Anthropic.BadRequestError) {
+      console.error("Anthropic BadRequestError:", error.message);
       return NextResponse.json(
-        { error: `Requête invalide envoyée à Claude : ${error.message}` },
+        {
+          error:
+            "Le fichier semble corrompu ou illisible, ou la fiche de poste est invalide. Réessaie avec un autre fichier.",
+        },
         { status: 400 },
       );
     }
     if (error instanceof Anthropic.APIError) {
+      console.error("Anthropic APIError:", error.message);
       return NextResponse.json(
-        { error: `Erreur de l'API Anthropic : ${error.message}` },
+        { error: "Une erreur est survenue, réessaie dans quelques instants." },
         { status: error.status ?? 500 },
       );
     }
-    return NextResponse.json({ error: "Erreur inattendue lors de la génération." }, { status: 500 });
+    console.error("Erreur inattendue lors de la génération:", error);
+    return NextResponse.json(
+      { error: "Une erreur est survenue, réessaie dans quelques instants." },
+      { status: 500 },
+    );
   }
 }
