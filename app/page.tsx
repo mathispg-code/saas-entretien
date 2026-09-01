@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Lock } from "lucide-react";
 
 type Question = {
   question: string;
@@ -148,9 +149,22 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[] | null>(null);
+  const [mastered, setMastered] = useState<Set<number>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cvInputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+
+  function toggleMastered(index: number) {
+    setMastered((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (questions && questions.length > 0) {
@@ -208,6 +222,7 @@ export default function Home() {
       }
 
       setQuestions(data.questions);
+      setMastered(new Set());
     } catch {
       setError("Impossible de contacter le serveur. Réessaie.");
     } finally {
@@ -235,6 +250,13 @@ export default function Home() {
     }
     setError(null);
     setCvFile(file);
+  }
+
+  function handleRemovePdf() {
+    setPdfFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   }
 
   function handleRemoveCv() {
@@ -330,7 +352,14 @@ export default function Home() {
                 />
                 {pdfFile && (
                   <p className="mt-2 text-sm text-slate-300">
-                    Fichier sélectionné : {pdfFile.name}
+                    Fichier sélectionné : {pdfFile.name}{" "}
+                    <button
+                      type="button"
+                      onClick={handleRemovePdf}
+                      className="ml-2 font-medium text-emerald-400 underline hover:text-emerald-300"
+                    >
+                      Retirer
+                    </button>
                   </p>
                 )}
               </div>
@@ -396,11 +425,17 @@ export default function Home() {
               </div>
             </div>
 
+            <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-xs text-slate-500">
+              <Lock className="h-3.5 w-3.5 flex-none" />
+              Vos documents ne sont jamais stockés, ils sont utilisés
+              uniquement le temps de la génération.
+            </p>
+
             <button
               type="button"
               onClick={handleGenerate}
               disabled={!canSubmit || loading}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3.5 text-sm font-semibold text-navy-950 shadow-[0_0_35px_-8px_rgba(16,185,129,0.7)] transition hover:bg-emerald-400 hover:shadow-[0_0_45px_-6px_rgba(16,185,129,0.85)] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-500 disabled:shadow-none"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3.5 text-sm font-semibold text-navy-950 shadow-[0_0_35px_-8px_rgba(16,185,129,0.7)] transition hover:bg-emerald-400 hover:shadow-[0_0_45px_-6px_rgba(16,185,129,0.85)] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-500 disabled:shadow-none"
             >
               {loading ? (
                 <>
@@ -446,22 +481,41 @@ export default function Home() {
               <CheckIcon className="h-4 w-4" />
               {questions.length} questions générées
             </div>
-            <h2 className="mb-4 text-lg font-semibold text-navy-800">
-              Vos questions d&apos;entretien
-            </h2>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-navy-800">
+                Vos questions d&apos;entretien
+              </h2>
+              <span className="text-sm font-medium text-slate-500">
+                {mastered.size}/{questions.length} questions maîtrisées
+              </span>
+            </div>
             <div className="space-y-4">
               {questions.map((q, i) => (
                 <div
                   key={i}
-                  className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md sm:p-6"
+                  style={{ animationDelay: `${i * 60}ms` }}
+                  className="animate-fade-in-up rounded-2xl border border-slate-200 bg-white p-5 shadow-sm [animation-fill-mode:backwards] transition hover:shadow-md sm:p-6"
                 >
-                  <div className="flex gap-3 sm:gap-4">
-                    <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-navy-600 text-sm font-bold text-white sm:h-9 sm:w-9">
-                      {i + 1}
-                    </span>
-                    <p className="pt-0.5 font-semibold text-slate-900 sm:text-lg">
-                      {q.question}
-                    </p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex gap-3 sm:gap-4">
+                      <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-navy-600 text-sm font-bold text-white sm:h-9 sm:w-9">
+                        {i + 1}
+                      </span>
+                      <p className="pt-0.5 font-semibold text-slate-900 sm:text-lg">
+                        {q.question}
+                      </p>
+                    </div>
+                    <label className="flex flex-none cursor-pointer select-none items-center gap-1.5 pt-1">
+                      <input
+                        type="checkbox"
+                        checked={mastered.has(i)}
+                        onChange={() => toggleMastered(i)}
+                        className="h-4 w-4 cursor-pointer rounded accent-emerald-500"
+                      />
+                      <span className="hidden text-xs text-slate-400 sm:inline">
+                        Maîtrisée
+                      </span>
+                    </label>
                   </div>
                   <div className="ml-11 mt-3 flex gap-2 rounded-lg border-l-4 border-emerald-500 bg-emerald-50 p-3 sm:ml-[52px] sm:p-4">
                     <LightbulbIcon className="mt-0.5 h-4 w-4 flex-none text-emerald-600" />
