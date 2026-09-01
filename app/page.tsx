@@ -10,6 +10,8 @@ type Question = {
 
 type Mode = "text" | "pdf";
 
+const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
+
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -401,27 +403,25 @@ export default function Home() {
             </div>
 
             <div className="mt-6">
-              <div className="mb-2 flex items-center justify-between">
-                <label htmlFor="question-count" className="text-sm font-medium text-slate-300">
-                  Nombre de questions
-                </label>
-                <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-sm font-semibold text-emerald-300">
-                  {questionCount} questions
-                </span>
-              </div>
-              <input
-                id="question-count"
-                type="range"
-                min={6}
-                max={20}
-                step={2}
-                value={questionCount}
-                onChange={(e) => setQuestionCount(Number(e.target.value))}
-                className="h-2 w-full cursor-pointer appearance-none rounded-full bg-white/10 accent-emerald-500"
-              />
-              <div className="mt-1 flex justify-between text-xs text-slate-500">
-                <span>6</span>
-                <span>20</span>
+              <p className="mb-2 text-sm font-medium text-slate-300">
+                Nombre de questions
+              </p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {QUESTION_COUNT_OPTIONS.map((count) => (
+                  <button
+                    key={count}
+                    type="button"
+                    onClick={() => setQuestionCount(count)}
+                    aria-pressed={questionCount === count}
+                    className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                      questionCount === count
+                        ? "border-emerald-500 bg-emerald-500 text-white"
+                        : "border-white/15 bg-transparent text-slate-300 hover:border-white/30 hover:bg-white/5"
+                    }`}
+                  >
+                    {count} questions
+                  </button>
+                ))}
               </div>
             </div>
 

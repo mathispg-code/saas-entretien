@@ -5,8 +5,7 @@ import { z } from "zod";
 
 export const runtime = "nodejs";
 
-const MIN_QUESTIONS = 6;
-const MAX_QUESTIONS = 20;
+const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
 const DEFAULT_QUESTIONS = 10;
 
 function buildQuestionsSchema(count: number) {
@@ -66,15 +65,10 @@ export async function POST(request: Request) {
     );
   }
 
-  if (
-    !Number.isInteger(questionCount) ||
-    questionCount % 2 !== 0 ||
-    questionCount < MIN_QUESTIONS ||
-    questionCount > MAX_QUESTIONS
-  ) {
+  if (!QUESTION_COUNT_OPTIONS.includes(questionCount as (typeof QUESTION_COUNT_OPTIONS)[number])) {
     return NextResponse.json(
       {
-        error: `Le nombre de questions doit être un nombre pair entre ${MIN_QUESTIONS} et ${MAX_QUESTIONS}.`,
+        error: `Le nombre de questions doit être l'une des valeurs suivantes : ${QUESTION_COUNT_OPTIONS.join(", ")}.`,
       },
       { status: 400 },
     );
