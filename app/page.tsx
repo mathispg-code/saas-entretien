@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SiteHeader } from "./components/SiteHeader";
 import { SiteFooter } from "./components/SiteFooter";
+import { SideDecoration } from "./components/SideDecoration";
 import { CheckIcon, ClockIcon, UserIcon, ZapIcon } from "./components/icons";
 
 const REASSURANCES = [
@@ -41,6 +42,7 @@ export default function LandingPage() {
           aria-hidden
           className="motion-safe:animate-float-slow-2 pointer-events-none absolute -right-24 bottom-0 h-56 w-56 rounded-full bg-emerald-400/10 blur-3xl sm:h-[26rem] sm:w-[26rem]"
         />
+        <SideDecoration />
 
         <div className="relative z-10 mx-auto max-w-3xl text-center">
           <div className="mb-6 inline-flex animate-fade-in items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium text-emerald-300 backdrop-blur-sm sm:text-sm">

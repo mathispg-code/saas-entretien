@@ -90,6 +90,27 @@ export function ClockIcon({ className }: { className?: string }) {
   );
 }
 
+export function DotGrid({ className }: { className?: string }) {
+  const cols = 4;
+  const rows = 5;
+  const spacing = 16;
+  const dots = [];
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      dots.push(<circle key={`${x}-${y}`} cx={x * spacing + 4} cy={y * spacing + 4} r={1.5} />);
+    }
+  }
+  return (
+    <svg
+      viewBox={`0 0 ${cols * spacing} ${rows * spacing}`}
+      fill="currentColor"
+      className={className}
+    >
+      {dots}
+    </svg>
+  );
+}
+
 export function CheckIcon({ className }: { className?: string }) {
   return (
     <svg
