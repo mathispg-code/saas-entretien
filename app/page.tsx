@@ -1,13 +1,38 @@
 import Link from "next/link";
+import { Award, Gift, Sparkles, Zap } from "lucide-react";
 import { SiteHeader } from "./components/SiteHeader";
 import { SiteFooter } from "./components/SiteFooter";
 import { SideDecoration } from "./components/SideDecoration";
+import { RevealOnScroll } from "./components/RevealOnScroll";
 import { CheckIcon, ClockIcon, UserIcon, ZapIcon } from "./components/icons";
 
 const REASSURANCES = [
   { icon: CheckIcon, label: "Gratuit à tester" },
   { icon: UserIcon, label: "CV optionnel" },
   { icon: ClockIcon, label: "Résultat en quelques secondes" },
+];
+
+const ADVANTAGES = [
+  {
+    icon: Zap,
+    title: "Ultra-rapide",
+    text: "Tes questions d'entretien en quelques secondes, pas en plusieurs heures de recherche.",
+  },
+  {
+    icon: Sparkles,
+    title: "Taillé pour toi",
+    text: "Chaque question colle à la fiche de poste et à ton profil — jamais générique.",
+  },
+  {
+    icon: Award,
+    title: "Le niveau d'un vrai recruteur",
+    text: "Catégories variées, conseils structurés, méthode de réponse incluse.",
+  },
+  {
+    icon: Gift,
+    title: "0€ pour commencer",
+    text: "Ta première génération est gratuite, sans carte bancaire ni compte à créer.",
+  },
 ];
 
 const JSON_LD = {
@@ -93,6 +118,30 @@ export default function LandingPage() {
                 <Icon className="h-4 w-4 text-emerald-400" />
                 {label}
               </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="px-4 py-16 sm:py-20">
+        <div className="mx-auto max-w-6xl">
+          <RevealOnScroll className="text-center">
+            <h2 className="text-2xl font-extrabold tracking-tight text-navy-900 sm:text-3xl">
+              L&apos;avantage <span className="text-emerald-500">CandiView</span>
+            </h2>
+          </RevealOnScroll>
+
+          <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {ADVANTAGES.map(({ icon: Icon, title, text }, i) => (
+              <RevealOnScroll key={title} delayMs={i * 100}>
+                <div className="group h-full rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-emerald-300 hover:shadow-lg">
+                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition group-hover:bg-emerald-500 group-hover:text-white">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <h3 className="mb-1.5 text-base font-bold text-navy-900">{title}</h3>
+                  <p className="text-sm text-slate-600">{text}</p>
+                </div>
+              </RevealOnScroll>
             ))}
           </div>
         </div>
