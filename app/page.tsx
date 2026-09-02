@@ -35,10 +35,10 @@ export default function LandingPage() {
             style={{ animationDelay: "80ms" }}
           >
             <span className="bg-gradient-to-b from-white to-slate-300 bg-clip-text text-transparent">
-              Prépare ton entretien en{" "}
+              Prépare tes entretiens,{" "}
             </span>
             <span className="bg-gradient-to-r from-emerald-400 to-emerald-300 bg-clip-text text-transparent">
-              30 secondes chrono
+              gagne en confiance
             </span>
           </h1>
 

@@ -320,8 +320,9 @@ export default function GenerateurPage() {
             className="mx-auto mt-5 max-w-xl animate-fade-in-up text-sm text-slate-300 [animation-fill-mode:backwards] sm:text-base"
             style={{ animationDelay: "160ms" }}
           >
-            Colle une fiche de poste, ajoute ton CV si tu veux des conseils sur
-            mesure, et prépare-toi sereinement pour ton entretien.
+            Colle une fiche de poste, reçois des questions d&apos;entretien
+            ciblées et des conseils pour y répondre sereinement. Simple et
+            rapide.
           </p>
         </div>
 
