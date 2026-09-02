@@ -11,7 +11,7 @@ export function SiteFooter() {
           Politique de confidentialité
         </Link>
         <a
-          href="mailto:ton-email@exemple.com?subject=Retour%20sur%20EntretienIA"
+          href="mailto:ton-email@exemple.com?subject=Retour%20sur%20CandiView"
           className="hover:text-slate-600"
         >
           Un bug ? Une suggestion ?

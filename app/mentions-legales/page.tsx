@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Mentions légales — EntretienIA",
+  title: "Mentions légales — CandiView",
 };
 
 export default function MentionsLegales() {
@@ -11,7 +11,7 @@ export default function MentionsLegales() {
       <header className="border-b border-slate-200 bg-navy-900 px-4 py-4">
         <div className="mx-auto max-w-3xl">
           <Link href="/" className="text-lg font-bold tracking-tight text-white">
-            Entretien<span className="text-emerald-400">IA</span>
+            Candi<span className="text-emerald-400">View</span>
           </Link>
         </div>
       </header>

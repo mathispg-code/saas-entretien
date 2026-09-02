@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "EntretienIA — Générateur de questions d'entretien par IA";
+export const alt = "CandiView — Générateur de questions d'entretien par IA";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -38,8 +38,8 @@ export default function OpengraphImage() {
               color: "white",
             }}
           >
-            Entretien
-            <span style={{ color: "#10B981" }}>IA</span>
+            Candi
+            <span style={{ color: "#10B981" }}>View</span>
           </div>
         </div>
         <div
