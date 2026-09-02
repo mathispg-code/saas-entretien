@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Compass, Link2, Lock, Target, type LucideIcon } from "lucide-react";
+import { Lock, Target } from "lucide-react";
 import { SiteHeader } from "../components/SiteHeader";
 import { SiteFooter } from "../components/SiteFooter";
 import {
@@ -29,9 +29,7 @@ type Categorie =
 
 type Conseil = {
   objectif: string;
-  methode: string;
-  vigilance: string;
-  lienCv?: string;
+  conseil: string;
 };
 
 type Question = {
@@ -68,7 +66,7 @@ function ConseilRow({
   label,
   text,
 }: {
-  icon: LucideIcon;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   text: string;
 }) {
@@ -636,19 +634,9 @@ export default function GenerateurPage() {
                       </span>
                     </label>
                   </div>
-                  <div className="ml-11 mt-3 rounded-lg border-l-4 border-emerald-500 bg-emerald-50 p-3 sm:ml-[52px] sm:p-4">
-                    <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-emerald-700">
-                      <LightbulbIcon className="h-3.5 w-3.5" />
-                      Conseil de réponse
-                    </div>
-                    <div className="space-y-2">
-                      <ConseilRow icon={Target} label="Ce que ça évalue" text={q.conseil.objectif} />
-                      <ConseilRow icon={Compass} label="Méthode conseillée" text={q.conseil.methode} />
-                      <ConseilRow icon={AlertTriangle} label="À éviter" text={q.conseil.vigilance} />
-                      {q.conseil.lienCv && (
-                        <ConseilRow icon={Link2} label="Avec ton CV" text={q.conseil.lienCv} />
-                      )}
-                    </div>
+                  <div className="ml-11 mt-3 space-y-2 rounded-lg border-l-4 border-emerald-500 bg-emerald-50 p-3 sm:ml-[52px] sm:p-4">
+                    <ConseilRow icon={Target} label="Ce que ça évalue" text={q.conseil.objectif} />
+                    <ConseilRow icon={LightbulbIcon} label="Conseil" text={q.conseil.conseil} />
                   </div>
                 </div>
               ))}

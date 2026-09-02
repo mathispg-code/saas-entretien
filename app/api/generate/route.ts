@@ -32,12 +32,10 @@ const QUESTION_CATEGORIES = [
   "culture",
 ] as const;
 
-function buildQuestionsSchema(count: number, hasCv: boolean) {
+function buildQuestionsSchema(count: number) {
   const conseil = z.object({
     objectif: z.string(),
-    methode: z.string(),
-    vigilance: z.string(),
-    ...(hasCv ? { lienCv: z.string() } : {}),
+    conseil: z.string(),
   });
 
   return z.object({
@@ -79,12 +77,10 @@ Répartis les questions entre ces catégories, en proportions équilibrées adap
 - culture d'entreprise : 1 à 2 questions maximum, uniquement si la fiche contient des indices clairs sur la culture, les valeurs ou le secteur de l'entreprise — sinon n'en inclus aucune et redistribue vers les autres catégories.
 Indique la catégorie de chaque question dans le champ prévu à cet effet.
 
-Étape 3 — Pour chaque question, structure le conseil de réponse en plusieurs éléments courts (une phrase chacun, jamais un pavé de texte) :
+Étape 3 — Pour chaque question, donne un conseil de réponse en 2 éléments courts (une à deux phrases chacun, jamais un pavé de texte) :
 - objectif : ce que le recruteur cherche réellement à évaluer avec cette question précise
-- methode : une méthode de réponse concrète (la méthode STAR pour les questions comportementales et situationnelles ; pour les autres catégories, une structuration adaptée, par exemple partir d'un principe puis illustrer par un exemple concret pour les questions techniques)
-- vigilance : un point de vigilance ou un piège fréquent à éviter sur cette question précise
-${hasCv ? "- lienCv : un lien concret et réel avec l'expérience, les compétences ou les réalisations du candidat décrites dans son CV, pour illustrer sa réponse. Base-toi uniquement sur ce qui est réellement écrit dans le CV, n'invente rien." : ""}
-${!hasCv ? "Aucun CV n'a été fourni : donne des conseils génériques mais toujours concrets et actionnables." : ""}
+- conseil : une recommandation concrète et actionnable pour bien y répondre, en 1 à 2 phrases courtes maximum — jamais une seule phrase à rallonge qui empile plusieurs idées avec des virgules. Mentionne la méthode de réponse suggérée seulement si elle apporte une vraie valeur (par exemple la méthode STAR pour une question comportementale ou situationnelle), et glisse un point de vigilance uniquement s'il est vraiment utile pour cette question précise — n'essaie pas de caser systématiquement les deux à chaque fois, comme le ferait un recruteur qui donne un conseil oral synthétique, pas un rapport détaillé.
+${hasCv ? "Si un CV a été fourni et qu'un lien concret avec l'expérience réelle du candidat est pertinent pour cette question, glisse-le brièvement dans la phrase de conseil, sans champ séparé. Base-toi uniquement sur ce qui est réellement écrit dans le CV, n'invente rien." : "Aucun CV n'a été fourni : donne des conseils génériques mais toujours concrets et actionnables."}
 
 Important : si cette même fiche de poste a déjà été utilisée pour une génération précédente, les nouvelles questions doivent être différentes — varie l'angle abordé, l'ordre, la formulation et les exemples suggérés dans les conseils. Ne reformule jamais une génération précédente à l'identique. Le message utilisateur te donnera une consigne d'orientation à privilégier pour cette génération précise ; suis-la sans jamais réduire la pertinence des questions par rapport à la fiche de poste (et au CV le cas échéant) — la variété porte sur l'angle et la formulation, jamais sur la pertinence.
 Réponds en français.`;
@@ -214,7 +210,7 @@ export async function POST(request: Request) {
       max_tokens: 12000,
       output_config: {
         effort: "high",
-        format: zodOutputFormat(buildQuestionsSchema(questionCount, hasCv)),
+        format: zodOutputFormat(buildQuestionsSchema(questionCount)),
       },
       system: buildSystemPrompt(questionCount, hasCv),
       messages: [{ role: "user", content: userContent }],
