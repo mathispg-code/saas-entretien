@@ -229,20 +229,23 @@ export default function GenerateurPage() {
       <section className="relative overflow-hidden bg-gradient-to-b from-[#0F2E4C] to-[#050B14] px-4 pb-16 pt-14 sm:pb-20 sm:pt-20">
         <div
           aria-hidden
-          className="pointer-events-none absolute -left-32 top-0 h-56 w-56 rounded-full bg-emerald-500/20 blur-3xl sm:h-96 sm:w-96"
+          className="motion-safe:animate-float-slow-1 pointer-events-none absolute -left-32 top-0 h-56 w-56 rounded-full bg-emerald-500/20 blur-3xl sm:h-96 sm:w-96"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute -right-24 bottom-0 h-56 w-56 rounded-full bg-emerald-400/10 blur-3xl sm:h-[26rem] sm:w-[26rem]"
+          className="motion-safe:animate-float-slow-2 pointer-events-none absolute -right-24 bottom-0 h-56 w-56 rounded-full bg-emerald-400/10 blur-3xl sm:h-[26rem] sm:w-[26rem]"
         />
 
         <div className="relative z-10 mx-auto max-w-3xl text-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium text-emerald-300 backdrop-blur-sm sm:text-sm">
+          <div className="mb-6 inline-flex animate-fade-in items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium text-emerald-300 backdrop-blur-sm sm:text-sm">
             <ZapIcon className="h-3.5 w-3.5" />
             Générateur IA
           </div>
 
-          <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-5xl sm:leading-[1.15]">
+          <h1
+            className="animate-fade-in-up text-3xl font-extrabold leading-tight tracking-tight [animation-fill-mode:backwards] sm:text-5xl sm:leading-[1.15]"
+            style={{ animationDelay: "80ms" }}
+          >
             <span className="bg-gradient-to-b from-white to-slate-300 bg-clip-text text-transparent">
               Des questions d&apos;entretien{" "}
             </span>
@@ -254,13 +257,19 @@ export default function GenerateurPage() {
             </span>
           </h1>
 
-          <p className="mx-auto mt-5 max-w-xl text-sm text-slate-300 sm:text-base">
+          <p
+            className="mx-auto mt-5 max-w-xl animate-fade-in-up text-sm text-slate-300 [animation-fill-mode:backwards] sm:text-base"
+            style={{ animationDelay: "160ms" }}
+          >
             Colle une fiche de poste, ajoute ton CV si tu veux des conseils sur
             mesure, et prépare-toi sereinement pour ton entretien.
           </p>
         </div>
 
-        <div className="relative z-10 mx-auto mt-10 max-w-4xl">
+        <div
+          className="relative z-10 mx-auto mt-10 max-w-4xl animate-fade-in-up [animation-fill-mode:backwards]"
+          style={{ animationDelay: "240ms" }}
+        >
           <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 text-left shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-8">
             <div className="mb-3 flex items-center gap-2">
               <DocumentIcon className="h-5 w-5 text-emerald-400" />
@@ -407,7 +416,7 @@ export default function GenerateurPage() {
               type="button"
               onClick={handleGenerate}
               disabled={!canSubmit || loading || trialUsed}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3.5 text-sm font-semibold text-navy-950 shadow-[0_0_35px_-8px_rgba(16,185,129,0.7)] transition hover:bg-emerald-400 hover:shadow-[0_0_45px_-6px_rgba(16,185,129,0.85)] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-500 disabled:shadow-none"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3.5 text-sm font-semibold text-navy-950 shadow-[0_0_35px_-8px_rgba(16,185,129,0.7)] transition hover:scale-[1.015] hover:bg-emerald-400 hover:shadow-[0_0_45px_-6px_rgba(16,185,129,0.85)] active:scale-[0.99] disabled:cursor-not-allowed disabled:scale-100 disabled:bg-white/10 disabled:text-slate-500 disabled:shadow-none"
             >
               {loading ? (
                 <>
@@ -435,11 +444,17 @@ export default function GenerateurPage() {
           </div>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-xs text-slate-400 sm:text-sm">
-            <div className="flex items-center gap-2">
+            <div
+              className="flex animate-fade-in-up items-center gap-2 [animation-fill-mode:backwards]"
+              style={{ animationDelay: "320ms" }}
+            >
               <UserIcon className="h-4 w-4 text-emerald-400" />
               CV optionnel
             </div>
-            <div className="flex items-center gap-2">
+            <div
+              className="flex animate-fade-in-up items-center gap-2 [animation-fill-mode:backwards]"
+              style={{ animationDelay: "400ms" }}
+            >
               <ClockIcon className="h-4 w-4 text-emerald-400" />
               Résultat en quelques secondes
             </div>
