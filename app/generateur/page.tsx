@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Lock } from "lucide-react";
+import { AlertTriangle, Compass, Link2, Lock, Target, type LucideIcon } from "lucide-react";
 import { SiteHeader } from "../components/SiteHeader";
 import { SiteFooter } from "../components/SiteFooter";
 import {
@@ -20,10 +20,68 @@ import {
   markFreeTrialUsed,
 } from "../lib/free-trial";
 
+type Categorie =
+  | "technique"
+  | "comportementale"
+  | "situationnelle"
+  | "motivation"
+  | "culture";
+
+type Conseil = {
+  objectif: string;
+  methode: string;
+  vigilance: string;
+  lienCv?: string;
+};
+
 type Question = {
   question: string;
-  conseil: string;
+  categorie: Categorie;
+  conseil: Conseil;
 };
+
+type Analyse = {
+  competencesCles: string[];
+  responsabilitesPrincipales: string[];
+  niveauSeniorite: string;
+  signauxDistinctifs: string[];
+};
+
+const CATEGORY_LABELS: Record<Categorie, string> = {
+  technique: "Technique",
+  comportementale: "Comportemental",
+  situationnelle: "Mise en situation",
+  motivation: "Motivation",
+  culture: "Culture d'entreprise",
+};
+
+const CATEGORY_STYLES: Record<Categorie, string> = {
+  technique: "border-sky-200 bg-sky-50 text-sky-700",
+  comportementale: "border-violet-200 bg-violet-50 text-violet-700",
+  situationnelle: "border-amber-200 bg-amber-50 text-amber-700",
+  motivation: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  culture: "border-rose-200 bg-rose-50 text-rose-700",
+};
+
+function ConseilRow({
+  icon: Icon,
+  label,
+  text,
+}: {
+  icon: LucideIcon;
+  label: string;
+  text: string;
+}) {
+  return (
+    <div className="flex gap-2">
+      <Icon className="mt-0.5 h-3.5 w-3.5 flex-none text-emerald-600" />
+      <p className="text-sm text-slate-700">
+        <span className="font-semibold text-emerald-700">{label} : </span>
+        {text}
+      </p>
+    </div>
+  );
+}
 
 type Mode = "text" | "pdf";
 
@@ -55,6 +113,7 @@ export default function GenerateurPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[] | null>(null);
+  const [analyse, setAnalyse] = useState<Analyse | null>(null);
   const [mastered, setMastered] = useState<Set<number>>(new Set());
   // Limitation temporaire "un essai gratuit par appareil" — voir app/lib/free-trial.ts
   const [trialUsed, setTrialUsed] = useState(false);
@@ -91,6 +150,7 @@ export default function GenerateurPage() {
   async function handleGenerate() {
     setError(null);
     setQuestions(null);
+    setAnalyse(null);
 
     // Garde-fou : le bouton est désactivé dans ce cas, mais on protège aussi
     // l'appel API directement. Voir app/lib/free-trial.ts.
@@ -141,7 +201,7 @@ export default function GenerateurPage() {
         clearTimeout(timeoutId);
       }
 
-      let data: { questions?: Question[]; error?: string };
+      let data: { questions?: Question[]; analyse?: Analyse; error?: string };
       try {
         data = await res.json();
       } catch {
@@ -160,6 +220,7 @@ export default function GenerateurPage() {
       }
 
       setQuestions(data.questions);
+      setAnalyse(data.analyse ?? null);
       setMastered(new Set());
       markFreeTrialUsed();
       setTrialUsed(true);
@@ -473,6 +534,60 @@ export default function GenerateurPage() {
 
       {questions && questions.length > 0 && (
         <main ref={resultsRef} className="mx-auto max-w-4xl scroll-mt-20 px-4 pb-16 pt-10">
+          {analyse && (
+            <div className="mb-6 animate-fade-in rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-navy-700">
+                <DocumentIcon className="h-4 w-4 text-emerald-500" />
+                Analyse du poste
+              </h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">
+                    Compétences clés
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {analyse.competencesCles.map((c) => (
+                      <span
+                        key={c}
+                        className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700"
+                      >
+                        {c}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">
+                    Niveau de séniorité
+                  </p>
+                  <p className="text-sm text-slate-700">{analyse.niveauSeniorite}</p>
+                </div>
+                <div>
+                  <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">
+                    Responsabilités principales
+                  </p>
+                  <ul className="list-inside list-disc space-y-0.5 text-sm text-slate-700">
+                    {analyse.responsabilitesPrincipales.map((r) => (
+                      <li key={r}>{r}</li>
+                    ))}
+                  </ul>
+                </div>
+                {analyse.signauxDistinctifs.length > 0 && (
+                  <div>
+                    <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">
+                      Signaux distinctifs
+                    </p>
+                    <ul className="list-inside list-disc space-y-0.5 text-sm text-slate-700">
+                      {analyse.signauxDistinctifs.map((s) => (
+                        <li key={s}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <section>
             <div className="mb-4 inline-flex animate-fade-in items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
               <CheckIcon className="h-4 w-4" />
@@ -498,9 +613,16 @@ export default function GenerateurPage() {
                       <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-navy-600 text-sm font-bold text-white sm:h-9 sm:w-9">
                         {i + 1}
                       </span>
-                      <p className="pt-0.5 font-semibold text-slate-900 sm:text-lg">
-                        {q.question}
-                      </p>
+                      <div className="pt-0.5">
+                        <span
+                          className={`mb-1.5 inline-block rounded-full border px-2 py-0.5 text-[10px] font-medium ${CATEGORY_STYLES[q.categorie]}`}
+                        >
+                          {CATEGORY_LABELS[q.categorie]}
+                        </span>
+                        <p className="font-semibold text-slate-900 sm:text-lg">
+                          {q.question}
+                        </p>
+                      </div>
                     </div>
                     <label className="flex flex-none cursor-pointer select-none items-center gap-1.5 pt-1">
                       <input
@@ -514,14 +636,19 @@ export default function GenerateurPage() {
                       </span>
                     </label>
                   </div>
-                  <div className="ml-11 mt-3 flex gap-2 rounded-lg border-l-4 border-emerald-500 bg-emerald-50 p-3 sm:ml-[52px] sm:p-4">
-                    <LightbulbIcon className="mt-0.5 h-4 w-4 flex-none text-emerald-600" />
-                    <p className="text-sm text-slate-700">
-                      <span className="font-semibold text-emerald-700">
-                        Conseil :{" "}
-                      </span>
-                      {q.conseil}
-                    </p>
+                  <div className="ml-11 mt-3 rounded-lg border-l-4 border-emerald-500 bg-emerald-50 p-3 sm:ml-[52px] sm:p-4">
+                    <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                      <LightbulbIcon className="h-3.5 w-3.5" />
+                      Conseil de réponse
+                    </div>
+                    <div className="space-y-2">
+                      <ConseilRow icon={Target} label="Ce que ça évalue" text={q.conseil.objectif} />
+                      <ConseilRow icon={Compass} label="Méthode conseillée" text={q.conseil.methode} />
+                      <ConseilRow icon={AlertTriangle} label="À éviter" text={q.conseil.vigilance} />
+                      {q.conseil.lienCv && (
+                        <ConseilRow icon={Link2} label="Avec ton CV" text={q.conseil.lienCv} />
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

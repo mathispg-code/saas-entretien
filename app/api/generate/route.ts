@@ -24,26 +24,68 @@ const VARIATION_ANGLES = [
   "Insiste sur les points les plus spécifiques et différenciants de cette fiche de poste plutôt que sur des questions standards du secteur.",
 ] as const;
 
-function buildQuestionsSchema(count: number) {
+const QUESTION_CATEGORIES = [
+  "technique",
+  "comportementale",
+  "situationnelle",
+  "motivation",
+  "culture",
+] as const;
+
+function buildQuestionsSchema(count: number, hasCv: boolean) {
+  const conseil = z.object({
+    objectif: z.string(),
+    methode: z.string(),
+    vigilance: z.string(),
+    ...(hasCv ? { lienCv: z.string() } : {}),
+  });
+
   return z.object({
+    analyse: z.object({
+      competencesCles: z.array(z.string()),
+      responsabilitesPrincipales: z.array(z.string()),
+      niveauSeniorite: z.string(),
+      signauxDistinctifs: z.array(z.string()),
+    }),
     questions: z
       .array(
         z.object({
           question: z.string(),
-          conseil: z.string(),
+          categorie: z.enum(QUESTION_CATEGORIES),
+          conseil,
         }),
       )
       .length(count),
   });
 }
 
-function buildSystemPrompt(count: number) {
+function buildSystemPrompt(count: number, hasCv: boolean) {
   return `Tu es un recruteur senior avec 15 ans d'expérience en entretiens d'embauche.
-On te fournit le texte (ou le document) d'une fiche de poste.
-Ta tâche : à partir des compétences, responsabilités et exigences mentionnées, génère une liste d'exactement ${count} questions d'entretien probables qu'un recruteur poserait pour ce poste précis. Ce nombre est impératif : ni plus, ni moins.
-Pour chaque question, donne un conseil court (1 à 2 phrases) sur la manière d'y répondre efficacement.
-Varie les types de questions (technique, comportemental, motivation, mise en situation, culture d'entreprise) en fonction de ce que la fiche de poste met en avant.
-Si le CV d'un candidat est fourni en plus de la fiche de poste, personnalise chaque conseil en t'appuyant sur ses compétences, expériences et réalisations réelles (par exemple en suggérant de mentionner tel projet ou telle compétence précise pertinente pour la question). Si aucun CV n'est fourni, donne des conseils génériques mais toujours concrets et actionnables.
+On te fournit le texte (ou le document) d'une fiche de poste${hasCv ? ", ainsi que le CV d'un candidat" : ""}.
+
+Étape 1 — Analyse : avant de générer la moindre question, analyse la fiche de poste pour identifier :
+- les compétences clés recherchées
+- les responsabilités principales du poste
+- le niveau de séniorité attendu
+- les éventuels signaux distinctifs de l'entreprise ou du secteur (valeurs, secteur d'activité, taille, méthode de travail, etc. — liste vide si rien de notable n'apparaît dans le texte)
+Cette analyse doit guider directement la génération des questions : ne produis jamais de questions génériques déconnectées de ce que tu viens d'identifier.
+
+Étape 2 — Génère exactement ${count} questions d'entretien probables pour ce poste précis. Ce nombre est impératif : ni plus, ni moins.
+Répartis les questions entre ces catégories, en proportions équilibrées adaptées au nombre total demandé :
+- technique : la part la plus importante, sur les compétences et outils précis mentionnés dans la fiche
+- comportementale : une part significative
+- situationnelle (mise en situation concrète) : une part significative, du même ordre que la comportementale
+- motivation / adéquation avec le poste : quelques questions
+- culture d'entreprise : 1 à 2 questions maximum, uniquement si la fiche contient des indices clairs sur la culture, les valeurs ou le secteur de l'entreprise — sinon n'en inclus aucune et redistribue vers les autres catégories.
+Indique la catégorie de chaque question dans le champ prévu à cet effet.
+
+Étape 3 — Pour chaque question, structure le conseil de réponse en plusieurs éléments courts (une phrase chacun, jamais un pavé de texte) :
+- objectif : ce que le recruteur cherche réellement à évaluer avec cette question précise
+- methode : une méthode de réponse concrète (la méthode STAR pour les questions comportementales et situationnelles ; pour les autres catégories, une structuration adaptée, par exemple partir d'un principe puis illustrer par un exemple concret pour les questions techniques)
+- vigilance : un point de vigilance ou un piège fréquent à éviter sur cette question précise
+${hasCv ? "- lienCv : un lien concret et réel avec l'expérience, les compétences ou les réalisations du candidat décrites dans son CV, pour illustrer sa réponse. Base-toi uniquement sur ce qui est réellement écrit dans le CV, n'invente rien." : ""}
+${!hasCv ? "Aucun CV n'a été fourni : donne des conseils génériques mais toujours concrets et actionnables." : ""}
+
 Important : si cette même fiche de poste a déjà été utilisée pour une génération précédente, les nouvelles questions doivent être différentes — varie l'angle abordé, l'ordre, la formulation et les exemples suggérés dans les conseils. Ne reformule jamais une génération précédente à l'identique. Le message utilisateur te donnera une consigne d'orientation à privilégier pour cette génération précise ; suis-la sans jamais réduire la pertinence des questions par rapport à la fiche de poste (et au CV le cas échéant) — la variété porte sur l'angle et la formulation, jamais sur la pertinence.
 Réponds en français.`;
 }
@@ -164,15 +206,17 @@ export async function POST(request: Request) {
       : undefined,
   );
 
+  const hasCv = Boolean(cvBase64);
+
   try {
     const response = await client.messages.parse({
       model: "claude-sonnet-5",
-      max_tokens: 8192,
+      max_tokens: 12000,
       output_config: {
-        effort: "medium",
-        format: zodOutputFormat(buildQuestionsSchema(questionCount)),
+        effort: "high",
+        format: zodOutputFormat(buildQuestionsSchema(questionCount, hasCv)),
       },
-      system: buildSystemPrompt(questionCount),
+      system: buildSystemPrompt(questionCount, hasCv),
       messages: [{ role: "user", content: userContent }],
     });
 
