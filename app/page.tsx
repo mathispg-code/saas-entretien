@@ -9,9 +9,27 @@ const REASSURANCES = [
   { icon: ClockIcon, label: "Résultat en quelques secondes" },
 ];
 
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "CandiView",
+  description:
+    "Générateur de questions d'entretien à partir d'une fiche de poste, avec conseils pour y répondre",
+  url: "https://candiview.fr",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+};
+
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-slate-50">
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(JSON_LD).replace(/</g, "\\u003c"),
+        }}
+      />
       <SiteHeader />
 
       <section className="relative overflow-hidden bg-gradient-to-b from-[#0F2E4C] to-[#050B14] px-4 pb-16 pt-14 sm:pb-24 sm:pt-20">
