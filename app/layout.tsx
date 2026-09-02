@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
-const TITLE = "CandiView — Générateur de questions d'entretien par IA";
+const TITLE = "CandiView – Prépare tes entretiens, gagne en confiance";
 const DESCRIPTION =
-  "Colle une fiche de poste, ajoute ton CV, et obtiens en quelques secondes des questions d'entretien sur mesure avec des conseils pour bien y répondre.";
+  "Colle une fiche de poste, reçois des questions d'entretien ciblées et des conseils pour y répondre sereinement. Simple et rapide.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://candiview.fr"),
