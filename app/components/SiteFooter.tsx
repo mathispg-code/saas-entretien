@@ -3,7 +3,7 @@ import Link from "next/link";
 export function SiteFooter() {
   return (
     <footer className="border-t border-slate-200 px-4 py-6">
-      <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-x-6 gap-y-2 text-xs text-slate-400">
+      <div className="mx-auto flex max-w-6xl flex-wrap justify-center gap-x-6 gap-y-2 text-xs text-slate-400">
         <Link href="/mentions-legales" className="hover:text-slate-600">
           Mentions légales
         </Link>

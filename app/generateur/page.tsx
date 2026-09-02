@@ -227,7 +227,16 @@ export default function GenerateurPage() {
       <SiteHeader />
 
       <section className="relative overflow-hidden bg-gradient-to-b from-[#0F2E4C] to-[#050B14] px-4 pb-16 pt-14 sm:pb-20 sm:pt-20">
-        <div className="mx-auto max-w-3xl text-center">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -left-32 top-0 h-56 w-56 rounded-full bg-emerald-500/20 blur-3xl sm:h-96 sm:w-96"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-24 bottom-0 h-56 w-56 rounded-full bg-emerald-400/10 blur-3xl sm:h-[26rem] sm:w-[26rem]"
+        />
+
+        <div className="relative z-10 mx-auto max-w-3xl text-center">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium text-emerald-300 backdrop-blur-sm sm:text-sm">
             <ZapIcon className="h-3.5 w-3.5" />
             Générateur IA
@@ -249,8 +258,10 @@ export default function GenerateurPage() {
             Colle une fiche de poste, ajoute ton CV si tu veux des conseils sur
             mesure, et prépare-toi sereinement pour ton entretien.
           </p>
+        </div>
 
-          <div className="mt-10 rounded-3xl border border-white/10 bg-white/[0.04] p-5 text-left shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-8">
+        <div className="relative z-10 mx-auto mt-10 max-w-4xl">
+          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 text-left shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-8">
             <div className="mb-3 flex items-center gap-2">
               <DocumentIcon className="h-5 w-5 text-emerald-400" />
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-200">
@@ -437,7 +448,7 @@ export default function GenerateurPage() {
       </section>
 
       {trialUsed && !(questions && questions.length > 0) && (
-        <main className="mx-auto max-w-3xl px-4 pb-16 pt-10">
+        <main className="mx-auto max-w-4xl px-4 pb-16 pt-10">
           <div className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
             <Lock className="mx-auto h-8 w-8 text-slate-400" />
             <p className="mt-3 text-slate-700">{FREE_TRIAL_LOCKED_MESSAGE}</p>
@@ -446,7 +457,7 @@ export default function GenerateurPage() {
       )}
 
       {questions && questions.length > 0 && (
-        <main ref={resultsRef} className="mx-auto max-w-3xl scroll-mt-20 px-4 pb-16 pt-10">
+        <main ref={resultsRef} className="mx-auto max-w-4xl scroll-mt-20 px-4 pb-16 pt-10">
           <section>
             <div className="mb-4 inline-flex animate-fade-in items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
               <CheckIcon className="h-4 w-4" />
