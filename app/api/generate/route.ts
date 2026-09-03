@@ -9,9 +9,43 @@ export const runtime = "nodejs";
 const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
 const DEFAULT_QUESTIONS = 10;
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_TEXT_LENGTH = 20_000;
+const GENERIC_ERROR_MESSAGE = "Une erreur est survenue, réessaie dans quelques instants.";
+const ALLOWED_ORIGIN = "https://candiview.fr";
 
 function base64ByteLength(base64: string): number {
   return Math.ceil((base64.length * 3) / 4);
+}
+
+function isPdfSignature(base64: string): boolean {
+  // Un PDF valide commence toujours par la signature ASCII "%PDF-".
+  // On ne decode qu'un court prefixe pour eviter de decoder un gros fichier
+  // en entier juste pour cette verification.
+  const prefix = Buffer.from(base64.slice(0, 12), "base64");
+  return prefix.length >= 5 && prefix.subarray(0, 5).toString("latin1") === "%PDF-";
+}
+
+function corsHeaders(origin: string | null): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    Vary: "Origin",
+  };
+  if (origin === ALLOWED_ORIGIN) {
+    headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGIN;
+  }
+  return headers;
+}
+
+function json(data: unknown, status: number, origin: string | null) {
+  return NextResponse.json(data, { status, headers: corsHeaders(origin) });
+}
+
+export async function OPTIONS(request: Request) {
+  return new NextResponse(null, {
+    status: 204,
+    headers: corsHeaders(request.headers.get("origin")),
+  });
 }
 
 const VARIATION_ANGLES = [
@@ -87,14 +121,11 @@ Réponds en français.`;
 }
 
 export async function POST(request: Request) {
+  const origin = request.headers.get("origin");
+
   if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json(
-      {
-        error:
-          "La clé API Anthropic n'est pas configurée sur le serveur (ANTHROPIC_API_KEY manquante dans .env.local).",
-      },
-      { status: 500 },
-    );
+    console.error("ANTHROPIC_API_KEY manquante dans les variables d'environnement.");
+    return json({ error: GENERIC_ERROR_MESSAGE }, 500, origin);
   }
 
   let body: {
@@ -108,39 +139,57 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Corps de requête invalide." }, { status: 400 });
+    return json({ error: "Corps de requête invalide." }, 400, origin);
   }
 
   const { text, pdfBase64, cvBase64, questionCount = DEFAULT_QUESTIONS } = body;
 
   if (!text?.trim() && !pdfBase64) {
-    return NextResponse.json(
+    return json(
       { error: "Merci de coller le texte de la fiche de poste ou d'importer un PDF." },
-      { status: 400 },
+      400,
+      origin,
+    );
+  }
+
+  if (text && text.length > MAX_TEXT_LENGTH) {
+    return json(
+      {
+        error: `Le texte de la fiche de poste est trop long (${MAX_TEXT_LENGTH.toLocaleString("fr-FR")} caractères maximum).`,
+      },
+      400,
+      origin,
     );
   }
 
   if (!QUESTION_COUNT_OPTIONS.includes(questionCount as (typeof QUESTION_COUNT_OPTIONS)[number])) {
-    return NextResponse.json(
+    return json(
       {
         error: `Le nombre de questions doit être l'une des valeurs suivantes : ${QUESTION_COUNT_OPTIONS.join(", ")}.`,
       },
-      { status: 400 },
+      400,
+      origin,
     );
   }
 
   if (pdfBase64 && base64ByteLength(pdfBase64) > MAX_FILE_SIZE_BYTES) {
-    return NextResponse.json(
-      { error: "Le fichier est trop volumineux, 5 Mo maximum." },
-      { status: 413 },
-    );
+    return json({ error: "Le fichier est trop volumineux, 5 Mo maximum." }, 413, origin);
   }
 
   if (cvBase64 && base64ByteLength(cvBase64) > MAX_FILE_SIZE_BYTES) {
-    return NextResponse.json(
-      { error: "Le fichier est trop volumineux, 5 Mo maximum." },
-      { status: 413 },
+    return json({ error: "Le fichier est trop volumineux, 5 Mo maximum." }, 413, origin);
+  }
+
+  if (pdfBase64 && !isPdfSignature(pdfBase64)) {
+    return json(
+      { error: "Le fichier de la fiche de poste ne semble pas être un PDF valide." },
+      400,
+      origin,
     );
+  }
+
+  if (cvBase64 && !isPdfSignature(cvBase64)) {
+    return json({ error: "Le fichier du CV ne semble pas être un PDF valide." }, 400, origin);
   }
 
   const userContent: Anthropic.MessageParam["content"] = [];
@@ -217,47 +266,42 @@ export async function POST(request: Request) {
     });
 
     if (!response.parsed_output) {
-      return NextResponse.json(
+      return json(
         { error: "La génération a échoué : réponse du modèle non exploitable. Réessaie." },
-        { status: 502 },
+        502,
+        origin,
       );
     }
 
-    return NextResponse.json(response.parsed_output);
+    return json(response.parsed_output, 200, origin);
   } catch (error) {
     if (error instanceof Anthropic.AuthenticationError) {
-      return NextResponse.json(
-        { error: "Clé API Anthropic invalide. Vérifie ANTHROPIC_API_KEY dans .env.local." },
-        { status: 401 },
-      );
+      console.error("Anthropic AuthenticationError:", error.message);
+      return json({ error: GENERIC_ERROR_MESSAGE }, 401, origin);
     }
     if (error instanceof Anthropic.RateLimitError) {
-      return NextResponse.json(
+      return json(
         { error: "Limite de requêtes atteinte, réessaie dans quelques instants." },
-        { status: 429 },
+        429,
+        origin,
       );
     }
     if (error instanceof Anthropic.BadRequestError) {
       console.error("Anthropic BadRequestError:", error.message);
-      return NextResponse.json(
+      return json(
         {
           error:
             "Le fichier semble corrompu ou illisible, ou la fiche de poste est invalide. Réessaie avec un autre fichier.",
         },
-        { status: 400 },
+        400,
+        origin,
       );
     }
     if (error instanceof Anthropic.APIError) {
       console.error("Anthropic APIError:", error.message);
-      return NextResponse.json(
-        { error: "Une erreur est survenue, réessaie dans quelques instants." },
-        { status: error.status ?? 500 },
-      );
+      return json({ error: GENERIC_ERROR_MESSAGE }, error.status ?? 500, origin);
     }
     console.error("Erreur inattendue lors de la génération:", error);
-    return NextResponse.json(
-      { error: "Une erreur est survenue, réessaie dans quelques instants." },
-      { status: 500 },
-    );
+    return json({ error: GENERIC_ERROR_MESSAGE }, 500, origin);
   }
 }
