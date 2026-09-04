@@ -13,6 +13,15 @@ export const runtime = "nodejs";
 // le maximum autorise sur le plan Hobby.
 export const maxDuration = 60;
 
+// Filet de securite : si la generation reelle approche la limite de 60s,
+// Vercel tue la fonction sans egard pour le stream en cours, potentiellement
+// au milieu d'un envoi (connexion coupee brutalement, sans evenement "error"
+// ni "done"). On s'interrompt donc nous-memes un peu avant, pour avoir le
+// temps d'envoyer un message clair et de fermer proprement. Les elements
+// deja emis pendant le streaming restent acquis cote client.
+const SOFT_DEADLINE_MS = 57_000;
+const SOFT_DEADLINE_MESSAGE = "La génération prend plus de temps que prévu, réessaie.";
+
 const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
 const DEFAULT_QUESTIONS = 10;
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
@@ -328,6 +337,8 @@ export async function POST(request: Request) {
     let emittedQuestions = 0;
     let emittedVigilance = 0;
     let emittedAPoser = 0;
+    let deadlineHit = false;
+    let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
 
     try {
       const anthropicStream = client.messages.stream({
@@ -345,6 +356,11 @@ export async function POST(request: Request) {
         system: buildSystemPrompt(questionCount, hasCv),
         messages: [{ role: "user", content: userContent }],
       });
+
+      deadlineTimer = setTimeout(() => {
+        deadlineHit = true;
+        anthropicStream.abort();
+      }, SOFT_DEADLINE_MS);
 
       // La sortie structuree arrive comme un bloc "text" contenant du JSON
       // brut (pas un tool_use : l'evenement "inputJson" ne se declenche donc
@@ -406,6 +422,7 @@ export async function POST(request: Request) {
       });
 
       const finalMessage = await anthropicStream.finalMessage();
+      clearTimeout(deadlineTimer);
 
       if (!finalMessage.parsed_output) {
         send({
@@ -441,6 +458,11 @@ export async function POST(request: Request) {
 
       send({ type: "done" });
     } catch (error) {
+      clearTimeout(deadlineTimer);
+      if (deadlineHit) {
+        send({ type: "error", message: SOFT_DEADLINE_MESSAGE });
+        return;
+      }
       const { message } = anthropicErrorMessage(error);
       send({ type: "error", message });
     }

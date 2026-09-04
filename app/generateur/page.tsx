@@ -22,11 +22,15 @@ type Mode = "text" | "pdf";
 
 const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
-// La generation combine desormais analyse + questions + astuces + points CV +
-// questions a poser en un seul appel : un delai plus genereux que le feedback
-// (sortie plus courte) est necessaire, notamment avec CV + 20 questions.
-// Mesure empirique : ~82s pour 5 questions + CV, prevoir plus large pour 20.
-const GENERATION_TIMEOUT_MS = 150_000;
+// Filet de securite cote client : le serveur s'interrompt lui-meme a 57s
+// (voir SOFT_DEADLINE_MS dans app/api/generate/route.ts) et renvoie toujours
+// un evenement "error" ou "done" avant de fermer la connexion. Ce timeout ne
+// sert que pour les cas ou meme cette fermeture propre n'arrive pas
+// (connexion qui reste ouverte sans plus rien envoyer, etc.) : il couvre
+// tout le cycle, de l'envoi de la requete a la reception de "done", pas
+// seulement l'attente des en-tetes de reponse.
+const GENERATION_TIMEOUT_MS = 65_000;
+const GENERATION_TIMEOUT_MESSAGE = "La génération prend plus de temps que prévu, réessaie.";
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -109,6 +113,10 @@ export default function GenerateurPage() {
 
     let receivedDone = false;
     let receivedError: string | null = null;
+    const controller = new AbortController();
+    // Couvre tout le cycle (requete + lecture complete du flux) : voir le
+    // commentaire sur GENERATION_TIMEOUT_MS plus haut.
+    const timeoutId = setTimeout(() => controller.abort(), GENERATION_TIMEOUT_MS);
 
     try {
       const payload: {
@@ -132,20 +140,12 @@ export default function GenerateurPage() {
         payload.cvFilename = cvFile.name;
       }
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), GENERATION_TIMEOUT_MS);
-
-      let res: Response;
-      try {
-        res = await fetch("/api/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          signal: controller.signal,
-        });
-      } finally {
-        clearTimeout(timeoutId);
-      }
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
 
       if (!res.body) {
         setError(GENERIC_ERROR_MESSAGE);
@@ -224,8 +224,12 @@ export default function GenerateurPage() {
         );
       }
     } catch {
-      setError(GENERIC_ERROR_MESSAGE);
+      // Si le controller a ete aborte, c'est notre propre timeout qui a
+      // coupe la requete (aucun "done" recu a temps) : message dedie plutot
+      // que le message generique, les questions deja recues restent affichees.
+      setError(controller.signal.aborted ? GENERATION_TIMEOUT_MESSAGE : GENERIC_ERROR_MESSAGE);
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   }
