@@ -1,31 +1,22 @@
 import { randomUUID } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { Allow as PartialJsonAllow, parse as partialParseJson } from "partial-json";
 import { z } from "zod";
-import { GENERIC_ERROR_MESSAGE, json, optionsResponse } from "../../lib/api-response";
+import { corsHeaders, GENERIC_ERROR_MESSAGE, optionsResponse } from "../../lib/api-response";
 
 export const runtime = "nodejs";
-// La generation (analyse + questions + astuces + points CV + questions a
-// poser) peut prendre plus de 60s pour 20 questions avec CV. Sur Vercel, le
-// defaut sans ce reglage est bien plus bas (10s sur Hobby) : 60 est le
-// maximum autorise sur le plan Hobby, a verifier/augmenter si le plan le
-// permet et si des coupures apparaissent en production sur les gros volumes.
+// La generation est streamee (voir plus bas) pour eviter d'attendre la fin
+// complete avant d'envoyer quoi que ce soit. maxDuration reste neanmoins le
+// temps d'execution total autorise par Vercel : le streaming ne l'augmente
+// pas, il faut aussi que la generation reelle tienne dans ce budget. 60 est
+// le maximum autorise sur le plan Hobby.
 export const maxDuration = 60;
 
 const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
 const DEFAULT_QUESTIONS = 10;
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_TEXT_LENGTH = 20_000;
-
-const NIVEAU_OPTIONS = ["debutant", "intermediaire", "confirme"] as const;
-type Niveau = (typeof NIVEAU_OPTIONS)[number];
-const DEFAULT_NIVEAU: Niveau = "intermediaire";
-
-const NIVEAU_LABELS: Record<Niveau, string> = {
-  debutant: "Débutant",
-  intermediaire: "Intermédiaire",
-  confirme: "Confirmé",
-};
 
 function base64ByteLength(base64: string): number {
   return Math.ceil((base64.length * 3) / 4);
@@ -61,65 +52,49 @@ const QUESTION_CATEGORIES = [
   "culture",
 ] as const;
 
-function buildQuestionsSchema(count: number, hasCv: boolean) {
-  const conseil = z.object({
-    objectif: z.string(),
-    conseil: z.string(),
-  });
+// Schemas unitaires (reutilises pour valider chaque element au fur et a
+// mesure qu'il devient complet dans le flux, en plus du schema global qui
+// contraint la sortie du modele).
+const AnalyseSchema = z.object({
+  competencesCles: z.array(z.string()),
+  responsabilitesPrincipales: z.array(z.string()),
+  niveauSeniorite: z.string(),
+  signauxDistinctifs: z.array(z.string()),
+});
 
+const ConseilSchema = z.object({
+  objectif: z.string(),
+  conseil: z.string(),
+});
+
+const QuestionSchema = z.object({
+  question: z.string(),
+  categorie: z.enum(QUESTION_CATEGORIES),
+  conseil: ConseilSchema,
+  astuce: z.string(),
+});
+
+const VigilancePointSchema = z.object({
+  point: z.string(),
+  questionProbable: z.string(),
+  conseil: z.string(),
+});
+
+const APoserItemSchema = z.object({
+  question: z.string(),
+  pourquoi: z.string(),
+});
+
+function buildQuestionsSchema(count: number, hasCv: boolean) {
   return z.object({
-    analyse: z.object({
-      competencesCles: z.array(z.string()),
-      responsabilitesPrincipales: z.array(z.string()),
-      niveauSeniorite: z.string(),
-      signauxDistinctifs: z.array(z.string()),
-    }),
-    questions: z
-      .array(
-        z.object({
-          question: z.string(),
-          categorie: z.enum(QUESTION_CATEGORIES),
-          conseil,
-          astuce: z.string(),
-        }),
-      )
-      .length(count),
-    questionsAPoser: z
-      .array(
-        z.object({
-          question: z.string(),
-          pourquoi: z.string(),
-        }),
-      )
-      .min(2)
-      .max(3),
-    ...(hasCv
-      ? {
-          pointsVigilanceCv: z
-            .array(
-              z.object({
-                point: z.string(),
-                questionProbable: z.string(),
-                conseil: z.string(),
-              }),
-            )
-            .min(3)
-            .max(5),
-        }
-      : {}),
+    analyse: AnalyseSchema,
+    questions: z.array(QuestionSchema).length(count),
+    questionsAPoser: z.array(APoserItemSchema).min(2).max(3),
+    ...(hasCv ? { pointsVigilanceCv: z.array(VigilancePointSchema).min(3).max(5) } : {}),
   });
 }
 
-function buildSystemPrompt(count: number, hasCv: boolean, niveau: Niveau) {
-  const niveauInstructions: Record<Niveau, string> = {
-    debutant:
-      "Niveau débutant : privilégie des questions sur les concepts fondamentaux, reste guidé et pédagogique, évite le jargon avancé et les cas les plus ambigus.",
-    intermediaire:
-      "Niveau intermédiaire : questions sur l'autonomie dans des cas courants du métier, un mélange équilibré de bases solides et de mises en situation réalistes.",
-    confirme:
-      "Niveau confirmé : questions plus exigeantes sur l'architecture, les trade-offs, la gestion de la complexité et de l'ambiguïté, et le leadership technique ou fonctionnel attendu à ce niveau.",
-  };
-
+function buildSystemPrompt(count: number, hasCv: boolean) {
   return `Tu es un recruteur senior avec 15 ans d'expérience en entretiens d'embauche.
 On te fournit le texte (ou le document) d'une fiche de poste${hasCv ? ", ainsi que le CV d'un candidat" : ""}.
 
@@ -138,7 +113,6 @@ Répartis les questions entre ces catégories, en proportions équilibrées adap
 - motivation / adéquation avec le poste : quelques questions
 - culture d'entreprise : 1 à 2 questions maximum, uniquement si la fiche contient des indices clairs sur la culture, les valeurs ou le secteur de l'entreprise — sinon n'en inclus aucune et redistribue vers les autres catégories.
 Indique la catégorie de chaque question dans le champ prévu à cet effet.
-${niveauInstructions[niveau]} Cette consigne de niveau s'applique à la complexité et à la profondeur des questions, jamais à leur répartition par catégorie ci-dessus.
 
 Étape 3 — Pour chaque question, donne :
 - un conseil de réponse en 2 éléments courts (une à deux phrases chacun, jamais un pavé de texte) :
@@ -159,12 +133,81 @@ Important : si cette même fiche de poste a déjà été utilisée pour une gén
 Réponds en français.`;
 }
 
+type StreamEvent =
+  | { type: "analyse"; data: z.infer<typeof AnalyseSchema> }
+  | { type: "question"; data: z.infer<typeof QuestionSchema> }
+  | { type: "vigilance"; data: z.infer<typeof VigilancePointSchema> }
+  | { type: "aPoser"; data: z.infer<typeof APoserItemSchema> }
+  | { type: "done" }
+  | { type: "error"; message: string };
+
+function ndjsonResponse(
+  origin: string | null,
+  status: number,
+  run: (send: (event: StreamEvent) => void) => Promise<void>,
+) {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (event: StreamEvent) => {
+        controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+      };
+      try {
+        await run(send);
+      } catch (error) {
+        console.error("Erreur inattendue pendant le streaming de la génération:", error);
+        send({ type: "error", message: GENERIC_ERROR_MESSAGE });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    status,
+    headers: {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      ...corsHeaders(origin),
+    },
+  });
+}
+
+function errorStream(message: string, status: number, origin: string | null) {
+  return ndjsonResponse(origin, status, async (send) => {
+    send({ type: "error", message });
+  });
+}
+
+function anthropicErrorMessage(error: unknown): { message: string; status: number } {
+  if (error instanceof Anthropic.AuthenticationError) {
+    console.error("Anthropic AuthenticationError:", error.message);
+    return { message: GENERIC_ERROR_MESSAGE, status: 401 };
+  }
+  if (error instanceof Anthropic.RateLimitError) {
+    return { message: "Limite de requêtes atteinte, réessaie dans quelques instants.", status: 429 };
+  }
+  if (error instanceof Anthropic.BadRequestError) {
+    console.error("Anthropic BadRequestError:", error.message);
+    return {
+      message: "Le fichier semble corrompu ou illisible, ou la fiche de poste est invalide. Réessaie avec un autre fichier.",
+      status: 400,
+    };
+  }
+  if (error instanceof Anthropic.APIError) {
+    console.error("Anthropic APIError:", error.message);
+    return { message: GENERIC_ERROR_MESSAGE, status: error.status ?? 500 };
+  }
+  console.error("Erreur inattendue lors de la génération:", error);
+  return { message: GENERIC_ERROR_MESSAGE, status: 500 };
+}
+
 export async function POST(request: Request) {
   const origin = request.headers.get("origin");
 
   if (!process.env.ANTHROPIC_API_KEY) {
     console.error("ANTHROPIC_API_KEY manquante dans les variables d'environnement.");
-    return json({ error: GENERIC_ERROR_MESSAGE }, 500, origin);
+    return errorStream(GENERIC_ERROR_MESSAGE, 500, origin);
   }
 
   let body: {
@@ -174,78 +217,49 @@ export async function POST(request: Request) {
     cvBase64?: string;
     cvFilename?: string;
     questionCount?: number;
-    niveau?: string;
   };
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps de requête invalide." }, 400, origin);
+    return errorStream("Corps de requête invalide.", 400, origin);
   }
 
-  const {
-    text,
-    pdfBase64,
-    cvBase64,
-    questionCount = DEFAULT_QUESTIONS,
-    niveau = DEFAULT_NIVEAU,
-  } = body;
-
-  if (!NIVEAU_OPTIONS.includes(niveau as Niveau)) {
-    return json(
-      {
-        error: `Le niveau doit être l'une des valeurs suivantes : ${NIVEAU_OPTIONS.map((n) => NIVEAU_LABELS[n]).join(", ")}.`,
-      },
-      400,
-      origin,
-    );
-  }
+  const { text, pdfBase64, cvBase64, questionCount = DEFAULT_QUESTIONS } = body;
 
   if (!text?.trim() && !pdfBase64) {
-    return json(
-      { error: "Merci de coller le texte de la fiche de poste ou d'importer un PDF." },
-      400,
-      origin,
-    );
+    return errorStream("Merci de coller le texte de la fiche de poste ou d'importer un PDF.", 400, origin);
   }
 
   if (text && text.length > MAX_TEXT_LENGTH) {
-    return json(
-      {
-        error: `Le texte de la fiche de poste est trop long (${MAX_TEXT_LENGTH.toLocaleString("fr-FR")} caractères maximum).`,
-      },
+    return errorStream(
+      `Le texte de la fiche de poste est trop long (${MAX_TEXT_LENGTH.toLocaleString("fr-FR")} caractères maximum).`,
       400,
       origin,
     );
   }
 
   if (!QUESTION_COUNT_OPTIONS.includes(questionCount as (typeof QUESTION_COUNT_OPTIONS)[number])) {
-    return json(
-      {
-        error: `Le nombre de questions doit être l'une des valeurs suivantes : ${QUESTION_COUNT_OPTIONS.join(", ")}.`,
-      },
+    return errorStream(
+      `Le nombre de questions doit être l'une des valeurs suivantes : ${QUESTION_COUNT_OPTIONS.join(", ")}.`,
       400,
       origin,
     );
   }
 
   if (pdfBase64 && base64ByteLength(pdfBase64) > MAX_FILE_SIZE_BYTES) {
-    return json({ error: "Le fichier est trop volumineux, 5 Mo maximum." }, 413, origin);
+    return errorStream("Le fichier est trop volumineux, 5 Mo maximum.", 413, origin);
   }
 
   if (cvBase64 && base64ByteLength(cvBase64) > MAX_FILE_SIZE_BYTES) {
-    return json({ error: "Le fichier est trop volumineux, 5 Mo maximum." }, 413, origin);
+    return errorStream("Le fichier est trop volumineux, 5 Mo maximum.", 413, origin);
   }
 
   if (pdfBase64 && !isPdfSignature(pdfBase64)) {
-    return json(
-      { error: "Le fichier de la fiche de poste ne semble pas être un PDF valide." },
-      400,
-      origin,
-    );
+    return errorStream("Le fichier de la fiche de poste ne semble pas être un PDF valide.", 400, origin);
   }
 
   if (cvBase64 && !isPdfSignature(cvBase64)) {
-    return json({ error: "Le fichier du CV ne semble pas être un PDF valide." }, 400, origin);
+    return errorStream("Le fichier du CV ne semble pas être un PDF valide.", 400, origin);
   }
 
   const userContent: Anthropic.MessageParam["content"] = [];
@@ -308,57 +322,127 @@ export async function POST(request: Request) {
   );
 
   const hasCv = Boolean(cvBase64);
-  const niveauTyped = niveau as Niveau;
 
-  try {
-    const response = await client.messages.parse({
-      model: "claude-sonnet-5",
-      max_tokens: 14000,
-      output_config: {
-        effort: "high",
-        format: zodOutputFormat(buildQuestionsSchema(questionCount, hasCv)),
-      },
-      system: buildSystemPrompt(questionCount, hasCv, niveauTyped),
-      messages: [{ role: "user", content: userContent }],
-    });
+  return ndjsonResponse(origin, 200, async (send) => {
+    let emittedAnalyse = false;
+    let emittedQuestions = 0;
+    let emittedVigilance = 0;
+    let emittedAPoser = 0;
 
-    if (!response.parsed_output) {
-      return json(
-        { error: "La génération a échoué : réponse du modèle non exploitable. Réessaie." },
-        502,
-        origin,
-      );
-    }
-
-    return json(response.parsed_output, 200, origin);
-  } catch (error) {
-    if (error instanceof Anthropic.AuthenticationError) {
-      console.error("Anthropic AuthenticationError:", error.message);
-      return json({ error: GENERIC_ERROR_MESSAGE }, 401, origin);
-    }
-    if (error instanceof Anthropic.RateLimitError) {
-      return json(
-        { error: "Limite de requêtes atteinte, réessaie dans quelques instants." },
-        429,
-        origin,
-      );
-    }
-    if (error instanceof Anthropic.BadRequestError) {
-      console.error("Anthropic BadRequestError:", error.message);
-      return json(
-        {
-          error:
-            "Le fichier semble corrompu ou illisible, ou la fiche de poste est invalide. Réessaie avec un autre fichier.",
+    try {
+      const anthropicStream = client.messages.stream({
+        model: "claude-sonnet-5",
+        max_tokens: 14000,
+        output_config: {
+          // Mesure empirique : "high" (et l'absence d'effort) declenchent une
+          // phase de raisonnement interne ("thinking") qui ajoute 20-30s+ au
+          // pire cas (CV + 20 questions : 83s sans effort, 62s en "high"),
+          // sans amelioration de qualite constatee. "medium" evite cette
+          // phase et reste autour de 52-54s dans les memes conditions.
+          effort: "medium",
+          format: zodOutputFormat(buildQuestionsSchema(questionCount, hasCv)),
         },
-        400,
-        origin,
-      );
+        system: buildSystemPrompt(questionCount, hasCv),
+        messages: [{ role: "user", content: userContent }],
+      });
+
+      // La sortie structuree arrive comme un bloc "text" contenant du JSON
+      // brut (pas un tool_use : l'evenement "inputJson" ne se declenche donc
+      // jamais ici). On parse le JSON partiel accumule a chaque delta pour
+      // en extraire les elements de tableau deja complets.
+      anthropicStream.on("text", (_delta, textSnapshot) => {
+        let data: {
+          analyse?: unknown;
+          questions?: unknown[];
+          questionsAPoser?: unknown[];
+          pointsVigilanceCv?: unknown[];
+        };
+        try {
+          // Autorise tout (objets et tableaux ouverts, y compris l'objet
+          // racine lui-meme) : sans ca, aucun element ne remonte tant que le
+          // JSON entier n'est pas termine. La securite vient ensuite du
+          // schema Zod applique a chaque element avant de l'emettre : un
+          // element encore incomplet echoue simplement la validation et
+          // attend le prochain delta.
+          data = partialParseJson(textSnapshot, PartialJsonAllow.ALL);
+        } catch {
+          return;
+        }
+
+        if (!emittedAnalyse && data.analyse) {
+          const parsed = AnalyseSchema.safeParse(data.analyse);
+          if (parsed.success) {
+            send({ type: "analyse", data: parsed.data });
+            emittedAnalyse = true;
+          }
+        }
+
+        if (Array.isArray(data.questions)) {
+          for (let i = emittedQuestions; i < data.questions.length; i++) {
+            const parsed = QuestionSchema.safeParse(data.questions[i]);
+            if (!parsed.success) break;
+            send({ type: "question", data: parsed.data });
+            emittedQuestions++;
+          }
+        }
+
+        if (Array.isArray(data.pointsVigilanceCv)) {
+          for (let i = emittedVigilance; i < data.pointsVigilanceCv.length; i++) {
+            const parsed = VigilancePointSchema.safeParse(data.pointsVigilanceCv[i]);
+            if (!parsed.success) break;
+            send({ type: "vigilance", data: parsed.data });
+            emittedVigilance++;
+          }
+        }
+
+        if (Array.isArray(data.questionsAPoser)) {
+          for (let i = emittedAPoser; i < data.questionsAPoser.length; i++) {
+            const parsed = APoserItemSchema.safeParse(data.questionsAPoser[i]);
+            if (!parsed.success) break;
+            send({ type: "aPoser", data: parsed.data });
+            emittedAPoser++;
+          }
+        }
+      });
+
+      const finalMessage = await anthropicStream.finalMessage();
+
+      if (!finalMessage.parsed_output) {
+        send({
+          type: "error",
+          message: "La génération a échoué : réponse du modèle non exploitable. Réessaie.",
+        });
+        return;
+      }
+
+      // Passe de rattrapage : au cas ou un element n'aurait pas ete detecte
+      // pendant le streaming (defensif, ne devrait normalement pas arriver).
+      const output = finalMessage.parsed_output as {
+        analyse: z.infer<typeof AnalyseSchema>;
+        questions: z.infer<typeof QuestionSchema>[];
+        questionsAPoser: z.infer<typeof APoserItemSchema>[];
+        pointsVigilanceCv?: z.infer<typeof VigilancePointSchema>[];
+      };
+
+      if (!emittedAnalyse) {
+        send({ type: "analyse", data: output.analyse });
+      }
+      for (let i = emittedQuestions; i < output.questions.length; i++) {
+        send({ type: "question", data: output.questions[i] });
+      }
+      if (output.pointsVigilanceCv) {
+        for (let i = emittedVigilance; i < output.pointsVigilanceCv.length; i++) {
+          send({ type: "vigilance", data: output.pointsVigilanceCv[i] });
+        }
+      }
+      for (let i = emittedAPoser; i < output.questionsAPoser.length; i++) {
+        send({ type: "aPoser", data: output.questionsAPoser[i] });
+      }
+
+      send({ type: "done" });
+    } catch (error) {
+      const { message } = anthropicErrorMessage(error);
+      send({ type: "error", message });
     }
-    if (error instanceof Anthropic.APIError) {
-      console.error("Anthropic APIError:", error.message);
-      return json({ error: GENERIC_ERROR_MESSAGE }, error.status ?? 500, origin);
-    }
-    console.error("Erreur inattendue lors de la génération:", error);
-    return json({ error: GENERIC_ERROR_MESSAGE }, 500, origin);
-  }
+  });
 }

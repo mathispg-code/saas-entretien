@@ -1,6 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
-import type { Analyse, Categorie, Niveau, Question, QuestionAPoser } from "../types";
-import { CATEGORY_LABELS, NIVEAU_OPTIONS } from "../types";
+import type { Analyse, Categorie, Question, QuestionAPoser } from "../types";
+import { CATEGORY_LABELS } from "../types";
 
 const NAVY = "#0F2E4C";
 const EMERALD = "#10B981";
@@ -53,16 +53,12 @@ const styles = StyleSheet.create({
 export function InterviewPdfDocument({
   questions,
   questionsAPoser,
-  niveau,
   analyse,
 }: {
   questions: Question[];
   questionsAPoser: QuestionAPoser[];
-  niveau: Niveau;
   analyse: Analyse | null;
 }) {
-  const niveauLabel = NIVEAU_OPTIONS.find((n) => n.value === niveau)?.label ?? niveau;
-
   return (
     <Document title="Préparation d'entretien - CandiView">
       <Page size="A4" style={styles.page}>
@@ -71,7 +67,7 @@ export function InterviewPdfDocument({
             Candi<Text style={styles.brand}>View</Text> — Préparation d&apos;entretien
           </Text>
           <Text style={styles.headerSubtitle}>
-            {questions.length} questions · Niveau {niveauLabel}
+            {questions.length} questions
             {analyse ? ` · ${analyse.niveauSeniorite}` : ""}
           </Text>
         </View>

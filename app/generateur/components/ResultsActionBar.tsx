@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Download, Share2 } from "lucide-react";
 import { SpinnerIcon } from "../../components/icons";
 import { downloadInterviewPdf } from "../lib/generatePdf";
-import type { Analyse, Niveau, Question, QuestionAPoser } from "../types";
+import type { Analyse, Question, QuestionAPoser } from "../types";
 
 const SHARE_TEXT =
   "J'ai préparé mon entretien avec CandiView, l'outil gratuit de génération de questions d'entretien.";
@@ -13,13 +13,13 @@ const SHARE_URL = "https://candiview.fr";
 export function ResultsActionBar({
   questions,
   questionsAPoser,
-  niveau,
   analyse,
+  disabled = false,
 }: {
   questions: Question[];
   questionsAPoser: QuestionAPoser[] | null;
-  niveau: Niveau;
   analyse: Analyse | null;
+  disabled?: boolean;
 }) {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfError, setPdfError] = useState(false);
@@ -32,7 +32,6 @@ export function ResultsActionBar({
       await downloadInterviewPdf({
         questions,
         questionsAPoser: questionsAPoser ?? [],
-        niveau,
         analyse,
       });
     } catch {
@@ -66,7 +65,8 @@ export function ResultsActionBar({
       <button
         type="button"
         onClick={handleExportPdf}
-        disabled={pdfLoading}
+        disabled={pdfLoading || disabled}
+        title={disabled ? "Disponible une fois la génération terminée" : undefined}
         className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-navy-700 shadow-sm transition hover:border-emerald-300 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pdfLoading ? (
@@ -79,7 +79,9 @@ export function ResultsActionBar({
       <button
         type="button"
         onClick={handleShare}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-navy-700 shadow-sm transition hover:border-emerald-300 hover:text-emerald-700"
+        disabled={disabled}
+        title={disabled ? "Disponible une fois la génération terminée" : undefined}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-navy-700 shadow-sm transition hover:border-emerald-300 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <Share2 className="h-4 w-4" />
         {shareCopied ? "Lien copié !" : "Partager"}

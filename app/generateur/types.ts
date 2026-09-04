@@ -17,8 +17,6 @@ export type Question = {
   astuce: string;
 };
 
-export type Niveau = "debutant" | "intermediaire" | "confirme";
-
 export type QuestionAPoser = {
   question: string;
   pourquoi: string;
@@ -63,12 +61,6 @@ export const DEFAULT_ANSWER_STATE: AnswerState = {
 export const MAX_ANSWER_LENGTH = 2000;
 export const FEEDBACK_TIMEOUT_MS = 45_000;
 export const GENERIC_ERROR_MESSAGE = "Une erreur est survenue, réessaie dans quelques instants.";
-
-export const NIVEAU_OPTIONS: { value: Niveau; label: string }[] = [
-  { value: "debutant", label: "Débutant" },
-  { value: "intermediaire", label: "Intermédiaire" },
-  { value: "confirme", label: "Confirmé" },
-];
 
 export const CATEGORY_LABELS: Record<Categorie, string> = {
   technique: "Technique",

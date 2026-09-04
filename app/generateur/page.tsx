@@ -15,8 +15,8 @@ import {
 import { AnalyseCard } from "./components/AnalyseCard";
 import { ResultsActionBar } from "./components/ResultsActionBar";
 import { ResultsTabs } from "./components/ResultsTabs";
-import { GENERIC_ERROR_MESSAGE, NIVEAU_OPTIONS } from "./types";
-import type { Analyse, CvVigilancePoint, Niveau, Question, QuestionAPoser } from "./types";
+import { GENERIC_ERROR_MESSAGE } from "./types";
+import type { Analyse, CvVigilancePoint, Question, QuestionAPoser } from "./types";
 
 type Mode = "text" | "pdf";
 
@@ -48,7 +48,6 @@ export default function GenerateurPage() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [questionCount, setQuestionCount] = useState(FREE_TRIAL_QUESTION_COUNT);
-  const [niveau, setNiveau] = useState<Niveau>("intermediaire");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[] | null>(null);
@@ -64,14 +63,19 @@ export default function GenerateurPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cvInputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const hasScrolledRef = useRef(false);
 
   useEffect(() => {
     setTrialUsed(hasUsedFreeTrial());
   }, []);
 
   useEffect(() => {
-    if (questions && questions.length > 0) {
+    if (questions !== null && !hasScrolledRef.current) {
+      hasScrolledRef.current = true;
       resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    if (questions === null) {
+      hasScrolledRef.current = false;
     }
   }, [questions]);
 
@@ -97,7 +101,15 @@ export default function GenerateurPage() {
       return;
     }
 
+    // Nouvelle generation : on force un remontage propre de ResultsTabs des
+    // maintenant (mastered/reponses locales repartent a zero), meme si les
+    // donnees vont ensuite arriver progressivement pendant le meme flux.
+    setResultId((id) => id + 1);
     setLoading(true);
+
+    let receivedDone = false;
+    let receivedError: string | null = null;
+
     try {
       const payload: {
         text?: string;
@@ -106,8 +118,7 @@ export default function GenerateurPage() {
         cvBase64?: string;
         cvFilename?: string;
         questionCount?: number;
-        niveau?: Niveau;
-      } = { questionCount, niveau };
+      } = { questionCount };
 
       if (mode === "text") {
         payload.text = jobText;
@@ -136,37 +147,82 @@ export default function GenerateurPage() {
         clearTimeout(timeoutId);
       }
 
-      let data: {
-        questions?: Question[];
-        analyse?: Analyse;
-        pointsVigilanceCv?: CvVigilancePoint[];
-        questionsAPoser?: QuestionAPoser[];
-        error?: string;
-      };
-      try {
-        data = await res.json();
-      } catch {
+      if (!res.body) {
         setError(GENERIC_ERROR_MESSAGE);
         return;
       }
 
-      if (!res.ok) {
-        setError(data.error ?? GENERIC_ERROR_MESSAGE);
-        return;
+      // Des la connexion etablie, on affiche la section resultats (vide pour
+      // l'instant) pour que les questions apparaissent au fur et a mesure
+      // plutot qu'un unique etat de chargement suivi d'un affichage global.
+      setQuestions([]);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) {
+          break;
+        }
+        buffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex = buffer.indexOf("\n");
+        while (newlineIndex !== -1) {
+          const line = buffer.slice(0, newlineIndex).trim();
+          buffer = buffer.slice(newlineIndex + 1);
+          newlineIndex = buffer.indexOf("\n");
+
+          if (!line) {
+            continue;
+          }
+
+          let event: { type: string; data?: unknown; message?: string };
+          try {
+            event = JSON.parse(line);
+          } catch {
+            // Ligne corrompue (coupure au milieu d'un chunk réseau, improbable
+            // mais pas impossible) : on l'ignore plutôt que de tout casser.
+            continue;
+          }
+
+          switch (event.type) {
+            case "analyse":
+              setAnalyse(event.data as Analyse);
+              break;
+            case "question":
+              setQuestions((prev) => [...(prev ?? []), event.data as Question]);
+              break;
+            case "vigilance":
+              setCvVigilance((prev) => [...(prev ?? []), event.data as CvVigilancePoint]);
+              break;
+            case "aPoser":
+              setQuestionsAPoser((prev) => [...(prev ?? []), event.data as QuestionAPoser]);
+              break;
+            case "done":
+              receivedDone = true;
+              break;
+            case "error":
+              receivedError = event.message ?? GENERIC_ERROR_MESSAGE;
+              setError(receivedError);
+              break;
+          }
+        }
       }
 
-      if (!data.questions) {
-        setError(GENERIC_ERROR_MESSAGE);
-        return;
+      if (receivedDone && !receivedError) {
+        markFreeTrialUsed();
+        setTrialUsed(true);
+      } else if (!receivedDone && !receivedError) {
+        // La connexion s'est terminée sans message d'erreur explicite ni
+        // événement "done" (coupure réseau, fonction serverless arrêtée en
+        // cours de route...) : on garde les résultats déjà reçus plutôt que
+        // de tout jeter, et on prévient que ce n'est pas complet.
+        setError(
+          "La génération a été interrompue avant la fin. Voici les questions déjà reçues — tu peux réessayer.",
+        );
       }
-
-      setQuestions(data.questions);
-      setAnalyse(data.analyse ?? null);
-      setCvVigilance(data.pointsVigilanceCv ?? null);
-      setQuestionsAPoser(data.questionsAPoser ?? null);
-      setResultId((id) => id + 1);
-      markFreeTrialUsed();
-      setTrialUsed(true);
     } catch {
       setError(GENERIC_ERROR_MESSAGE);
     } finally {
@@ -412,27 +468,6 @@ export default function GenerateurPage() {
               )}
             </div>
 
-            <div className="mt-6">
-              <p className="mb-2 text-sm font-medium text-slate-300">Niveau</p>
-              <div className="grid grid-cols-3 gap-2">
-                {NIVEAU_OPTIONS.map(({ value, label }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setNiveau(value)}
-                    aria-pressed={niveau === value}
-                    className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                      niveau === value
-                        ? "border-emerald-500 bg-emerald-500 text-white"
-                        : "border-white/15 bg-transparent text-slate-300 hover:border-white/30 hover:bg-white/5"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-xs text-slate-500">
               <Lock className="h-3.5 w-3.5 flex-none" />
               Vos documents ne sont jamais stockés, ils sont utilisés
@@ -489,7 +524,7 @@ export default function GenerateurPage() {
         </div>
       </section>
 
-      {trialUsed && !(questions && questions.length > 0) && (
+      {trialUsed && questions === null && (
         <main className="mx-auto max-w-4xl px-4 pb-16 pt-10">
           <div className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
             <Lock className="mx-auto h-8 w-8 text-slate-400" />
@@ -498,13 +533,13 @@ export default function GenerateurPage() {
         </main>
       )}
 
-      {questions && questions.length > 0 && (
+      {questions !== null && (
         <main ref={resultsRef} className="mx-auto max-w-4xl scroll-mt-20 px-4 pb-16 pt-10">
           <ResultsActionBar
             questions={questions}
             questionsAPoser={questionsAPoser}
-            niveau={niveau}
             analyse={analyse}
+            disabled={loading}
           />
 
           {analyse && <AnalyseCard analyse={analyse} />}
@@ -515,6 +550,8 @@ export default function GenerateurPage() {
             analyse={analyse}
             cvVigilance={cvVigilance}
             questionsAPoser={questionsAPoser}
+            expectedQuestionCount={questionCount}
+            isStreaming={loading}
           />
         </main>
       )}

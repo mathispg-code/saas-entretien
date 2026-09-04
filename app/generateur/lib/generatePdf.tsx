@@ -1,14 +1,12 @@
-import type { Analyse, Niveau, Question, QuestionAPoser } from "../types";
+import type { Analyse, Question, QuestionAPoser } from "../types";
 
 export async function downloadInterviewPdf({
   questions,
   questionsAPoser,
-  niveau,
   analyse,
 }: {
   questions: Question[];
   questionsAPoser: QuestionAPoser[];
-  niveau: Niveau;
   analyse: Analyse | null;
 }) {
   const [{ pdf }, { InterviewPdfDocument }] = await Promise.all([
@@ -20,7 +18,6 @@ export async function downloadInterviewPdf({
     <InterviewPdfDocument
       questions={questions}
       questionsAPoser={questionsAPoser}
-      niveau={niveau}
       analyse={analyse}
     />,
   ).toBlob();

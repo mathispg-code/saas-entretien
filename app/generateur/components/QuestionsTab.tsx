@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckIcon } from "../../components/icons";
+import { CheckIcon, SpinnerIcon } from "../../components/icons";
 import { QuestionCard } from "./QuestionCard";
 import {
   DEFAULT_ANSWER_STATE,
@@ -13,9 +13,13 @@ import type { AnswerState, Analyse, FeedbackResult, Question } from "../types";
 export function QuestionsTab({
   questions,
   analyse,
+  expectedQuestionCount,
+  isStreaming,
 }: {
   questions: Question[];
   analyse: Analyse | null;
+  expectedQuestionCount: number;
+  isStreaming: boolean;
 }) {
   const [mastered, setMastered] = useState<Set<number>>(new Set());
   const [answers, setAnswers] = useState<Record<number, AnswerState>>({});
@@ -104,8 +108,17 @@ export function QuestionsTab({
   return (
     <section>
       <div className="mb-4 inline-flex animate-fade-in items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
-        <CheckIcon className="h-4 w-4" />
-        {questions.length} questions générées
+        {isStreaming ? (
+          <>
+            <SpinnerIcon className="h-4 w-4" />
+            {questions.length}/{expectedQuestionCount} questions reçues…
+          </>
+        ) : (
+          <>
+            <CheckIcon className="h-4 w-4" />
+            {questions.length} questions générées
+          </>
+        )}
       </div>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-navy-800">Vos questions d&apos;entretien</h2>
