@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
+import { GENERIC_ERROR_MESSAGE, json, optionsResponse } from "../../lib/api-response";
 
 export const runtime = "nodejs";
 
@@ -10,8 +10,6 @@ const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
 const DEFAULT_QUESTIONS = 10;
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_TEXT_LENGTH = 20_000;
-const GENERIC_ERROR_MESSAGE = "Une erreur est survenue, réessaie dans quelques instants.";
-const ALLOWED_ORIGIN = "https://candiview.fr";
 
 function base64ByteLength(base64: string): number {
   return Math.ceil((base64.length * 3) / 4);
@@ -25,27 +23,8 @@ function isPdfSignature(base64: string): boolean {
   return prefix.length >= 5 && prefix.subarray(0, 5).toString("latin1") === "%PDF-";
 }
 
-function corsHeaders(origin: string | null): Record<string, string> {
-  const headers: Record<string, string> = {
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    Vary: "Origin",
-  };
-  if (origin === ALLOWED_ORIGIN) {
-    headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGIN;
-  }
-  return headers;
-}
-
-function json(data: unknown, status: number, origin: string | null) {
-  return NextResponse.json(data, { status, headers: corsHeaders(origin) });
-}
-
 export async function OPTIONS(request: Request) {
-  return new NextResponse(null, {
-    status: 204,
-    headers: corsHeaders(request.headers.get("origin")),
-  });
+  return optionsResponse(request);
 }
 
 const VARIATION_ANGLES = [
