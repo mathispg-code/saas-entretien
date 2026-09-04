@@ -13,6 +13,7 @@ import {
   markFreeTrialUsed,
 } from "../lib/free-trial";
 import { AnalyseCard } from "./components/AnalyseCard";
+import { ResultsActionBar } from "./components/ResultsActionBar";
 import { ResultsTabs } from "./components/ResultsTabs";
 import { GENERIC_ERROR_MESSAGE, NIVEAU_OPTIONS } from "./types";
 import type { Analyse, CvVigilancePoint, Niveau, Question, QuestionAPoser } from "./types";
@@ -499,6 +500,13 @@ export default function GenerateurPage() {
 
       {questions && questions.length > 0 && (
         <main ref={resultsRef} className="mx-auto max-w-4xl scroll-mt-20 px-4 pb-16 pt-10">
+          <ResultsActionBar
+            questions={questions}
+            questionsAPoser={questionsAPoser}
+            niveau={niveau}
+            analyse={analyse}
+          />
+
           {analyse && <AnalyseCard analyse={analyse} />}
 
           <ResultsTabs
