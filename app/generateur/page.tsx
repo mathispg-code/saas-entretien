@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AlertCircle, Lock, MessageSquare, Sparkles, Target } from "lucide-react";
+import { AlertCircle, AlertTriangle, Lock, MessageSquare, Sparkles, Target } from "lucide-react";
 import { SiteHeader } from "../components/SiteHeader";
 import { SiteFooter } from "../components/SiteFooter";
 import { SideDecoration } from "../components/SideDecoration";
@@ -44,6 +44,12 @@ type Analyse = {
   responsabilitesPrincipales: string[];
   niveauSeniorite: string;
   signauxDistinctifs: string[];
+};
+
+type CvVigilancePoint = {
+  point: string;
+  questionProbable: string;
+  conseil: string;
 };
 
 type FeedbackResult = {
@@ -91,16 +97,20 @@ function ConseilRow({
   icon: Icon,
   label,
   text,
+  accentClassName = "text-emerald-600",
+  labelClassName = "text-emerald-700",
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   text: string;
+  accentClassName?: string;
+  labelClassName?: string;
 }) {
   return (
     <div className="flex gap-2">
-      <Icon className="mt-0.5 h-3.5 w-3.5 flex-none text-emerald-600" />
+      <Icon className={`mt-0.5 h-3.5 w-3.5 flex-none ${accentClassName}`} />
       <p className="text-sm text-slate-700">
-        <span className="font-semibold text-emerald-700">{label} : </span>
+        <span className={`font-semibold ${labelClassName}`}>{label} : </span>
         {text}
       </p>
     </div>
@@ -327,6 +337,7 @@ export default function GenerateurPage() {
   const [error, setError] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[] | null>(null);
   const [analyse, setAnalyse] = useState<Analyse | null>(null);
+  const [cvVigilance, setCvVigilance] = useState<CvVigilancePoint[] | null>(null);
   const [mastered, setMastered] = useState<Set<number>>(new Set());
   const [answers, setAnswers] = useState<Record<number, AnswerState>>({});
   // Limitation temporaire "un essai gratuit par appareil" — voir app/lib/free-trial.ts
@@ -434,6 +445,7 @@ export default function GenerateurPage() {
     setError(null);
     setQuestions(null);
     setAnalyse(null);
+    setCvVigilance(null);
 
     // Garde-fou : le bouton est désactivé dans ce cas, mais on protège aussi
     // l'appel API directement. Voir app/lib/free-trial.ts.
@@ -484,7 +496,12 @@ export default function GenerateurPage() {
         clearTimeout(timeoutId);
       }
 
-      let data: { questions?: Question[]; analyse?: Analyse; error?: string };
+      let data: {
+        questions?: Question[];
+        analyse?: Analyse;
+        pointsVigilanceCv?: CvVigilancePoint[];
+        error?: string;
+      };
       try {
         data = await res.json();
       } catch {
@@ -504,6 +521,7 @@ export default function GenerateurPage() {
 
       setQuestions(data.questions);
       setAnalyse(data.analyse ?? null);
+      setCvVigilance(data.pointsVigilanceCv ?? null);
       setMastered(new Set());
       setAnswers({});
       markFreeTrialUsed();
@@ -903,6 +921,42 @@ export default function GenerateurPage() {
               ))}
             </div>
           </section>
+
+          {cvVigilance && cvVigilance.length > 0 && (
+            <section className="mt-10">
+              <div className="mb-4 inline-flex animate-fade-in items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700">
+                <AlertTriangle className="h-4 w-4" />
+                Points de vigilance sur ton CV
+              </div>
+              <div className="space-y-4">
+                {cvVigilance.map((item, i) => (
+                  <div
+                    key={i}
+                    style={{ animationDelay: `${i * 60}ms` }}
+                    className="animate-fade-in-up rounded-2xl border border-slate-200 bg-white p-5 shadow-sm [animation-fill-mode:backwards] sm:p-6"
+                  >
+                    <p className="font-semibold text-slate-900 sm:text-lg">{item.point}</p>
+                    <div className="mt-3 space-y-2 rounded-lg border-l-4 border-amber-400 bg-amber-50 p-3 sm:p-4">
+                      <ConseilRow
+                        icon={MessageSquare}
+                        label="Question probable"
+                        text={item.questionProbable}
+                        accentClassName="text-amber-600"
+                        labelClassName="text-amber-700"
+                      />
+                      <ConseilRow
+                        icon={LightbulbIcon}
+                        label="Comment y répondre"
+                        text={item.conseil}
+                        accentClassName="text-amber-600"
+                        labelClassName="text-amber-700"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </main>
       )}
 

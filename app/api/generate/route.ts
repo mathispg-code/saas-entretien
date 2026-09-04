@@ -45,7 +45,7 @@ const QUESTION_CATEGORIES = [
   "culture",
 ] as const;
 
-function buildQuestionsSchema(count: number) {
+function buildQuestionsSchema(count: number, hasCv: boolean) {
   const conseil = z.object({
     objectif: z.string(),
     conseil: z.string(),
@@ -67,6 +67,20 @@ function buildQuestionsSchema(count: number) {
         }),
       )
       .length(count),
+    ...(hasCv
+      ? {
+          pointsVigilanceCv: z
+            .array(
+              z.object({
+                point: z.string(),
+                questionProbable: z.string(),
+                conseil: z.string(),
+              }),
+            )
+            .min(3)
+            .max(5),
+        }
+      : {}),
   });
 }
 
@@ -94,6 +108,12 @@ Indique la catégorie de chaque question dans le champ prévu à cet effet.
 - objectif : ce que le recruteur cherche réellement à évaluer avec cette question précise
 - conseil : une recommandation concrète et actionnable pour bien y répondre, en 1 à 2 phrases courtes maximum — jamais une seule phrase à rallonge qui empile plusieurs idées avec des virgules. Mentionne la méthode de réponse suggérée seulement si elle apporte une vraie valeur (par exemple la méthode STAR pour une question comportementale ou situationnelle), et glisse un point de vigilance uniquement s'il est vraiment utile pour cette question précise — n'essaie pas de caser systématiquement les deux à chaque fois, comme le ferait un recruteur qui donne un conseil oral synthétique, pas un rapport détaillé.
 ${hasCv ? "Si un CV a été fourni et qu'un lien concret avec l'expérience réelle du candidat est pertinent pour cette question, glisse-le brièvement dans la phrase de conseil, sans champ séparé. Base-toi uniquement sur ce qui est réellement écrit dans le CV, n'invente rien." : "Aucun CV n'a été fourni : donne des conseils génériques mais toujours concrets et actionnables."}
+
+${hasCv ? `Étape 4 — Analyse le CV du candidat pour identifier entre 3 et 5 points de vigilance que le recruteur va probablement creuser en entretien (par exemple : trou de carrière, changement de secteur ou de métier, compétence mentionnée mais jamais illustrée par une expérience concrète, poste occupé sur une durée courte, écart entre le niveau du poste visé et l'expérience réelle, etc.). N'en force pas 5 si le CV n'en présente que 3 de façon crédible : reste honnête, n'invente jamais un problème qui n'existe pas. Pour chaque point, donne :
+- point : le point de vigilance identifié, formulé de façon factuelle et neutre, jamais accusatrice
+- questionProbable : la question précise que le recruteur poserait probablement à ce sujet
+- conseil : comment y répondre sereinement et avec confiance, de façon concrète et actionnable
+Base-toi uniquement sur ce qui est réellement écrit dans le CV, n'invente rien.` : ""}
 
 Important : si cette même fiche de poste a déjà été utilisée pour une génération précédente, les nouvelles questions doivent être différentes — varie l'angle abordé, l'ordre, la formulation et les exemples suggérés dans les conseils. Ne reformule jamais une génération précédente à l'identique. Le message utilisateur te donnera une consigne d'orientation à privilégier pour cette génération précise ; suis-la sans jamais réduire la pertinence des questions par rapport à la fiche de poste (et au CV le cas échéant) — la variété porte sur l'angle et la formulation, jamais sur la pertinence.
 Réponds en français.`;
@@ -238,7 +258,7 @@ export async function POST(request: Request) {
       max_tokens: 12000,
       output_config: {
         effort: "high",
-        format: zodOutputFormat(buildQuestionsSchema(questionCount)),
+        format: zodOutputFormat(buildQuestionsSchema(questionCount, hasCv)),
       },
       system: buildSystemPrompt(questionCount, hasCv),
       messages: [{ role: "user", content: userContent }],
