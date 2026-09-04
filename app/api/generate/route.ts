@@ -11,6 +11,16 @@ const DEFAULT_QUESTIONS = 10;
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_TEXT_LENGTH = 20_000;
 
+const NIVEAU_OPTIONS = ["debutant", "intermediaire", "confirme"] as const;
+type Niveau = (typeof NIVEAU_OPTIONS)[number];
+const DEFAULT_NIVEAU: Niveau = "intermediaire";
+
+const NIVEAU_LABELS: Record<Niveau, string> = {
+  debutant: "Débutant",
+  intermediaire: "Intermédiaire",
+  confirme: "Confirmé",
+};
+
 function base64ByteLength(base64: string): number {
   return Math.ceil((base64.length * 3) / 4);
 }
@@ -64,9 +74,19 @@ function buildQuestionsSchema(count: number, hasCv: boolean) {
           question: z.string(),
           categorie: z.enum(QUESTION_CATEGORIES),
           conseil,
+          astuce: z.string(),
         }),
       )
       .length(count),
+    questionsAPoser: z
+      .array(
+        z.object({
+          question: z.string(),
+          pourquoi: z.string(),
+        }),
+      )
+      .min(2)
+      .max(3),
     ...(hasCv
       ? {
           pointsVigilanceCv: z
@@ -84,7 +104,16 @@ function buildQuestionsSchema(count: number, hasCv: boolean) {
   });
 }
 
-function buildSystemPrompt(count: number, hasCv: boolean) {
+function buildSystemPrompt(count: number, hasCv: boolean, niveau: Niveau) {
+  const niveauInstructions: Record<Niveau, string> = {
+    debutant:
+      "Niveau débutant : privilégie des questions sur les concepts fondamentaux, reste guidé et pédagogique, évite le jargon avancé et les cas les plus ambigus.",
+    intermediaire:
+      "Niveau intermédiaire : questions sur l'autonomie dans des cas courants du métier, un mélange équilibré de bases solides et de mises en situation réalistes.",
+    confirme:
+      "Niveau confirmé : questions plus exigeantes sur l'architecture, les trade-offs, la gestion de la complexité et de l'ambiguïté, et le leadership technique ou fonctionnel attendu à ce niveau.",
+  };
+
   return `Tu es un recruteur senior avec 15 ans d'expérience en entretiens d'embauche.
 On te fournit le texte (ou le document) d'une fiche de poste${hasCv ? ", ainsi que le CV d'un candidat" : ""}.
 
@@ -103,17 +132,22 @@ Répartis les questions entre ces catégories, en proportions équilibrées adap
 - motivation / adéquation avec le poste : quelques questions
 - culture d'entreprise : 1 à 2 questions maximum, uniquement si la fiche contient des indices clairs sur la culture, les valeurs ou le secteur de l'entreprise — sinon n'en inclus aucune et redistribue vers les autres catégories.
 Indique la catégorie de chaque question dans le champ prévu à cet effet.
+${niveauInstructions[niveau]} Cette consigne de niveau s'applique à la complexité et à la profondeur des questions, jamais à leur répartition par catégorie ci-dessus.
 
-Étape 3 — Pour chaque question, donne un conseil de réponse en 2 éléments courts (une à deux phrases chacun, jamais un pavé de texte) :
-- objectif : ce que le recruteur cherche réellement à évaluer avec cette question précise
-- conseil : une recommandation concrète et actionnable pour bien y répondre, en 1 à 2 phrases courtes maximum — jamais une seule phrase à rallonge qui empile plusieurs idées avec des virgules. Mentionne la méthode de réponse suggérée seulement si elle apporte une vraie valeur (par exemple la méthode STAR pour une question comportementale ou situationnelle), et glisse un point de vigilance uniquement s'il est vraiment utile pour cette question précise — n'essaie pas de caser systématiquement les deux à chaque fois, comme le ferait un recruteur qui donne un conseil oral synthétique, pas un rapport détaillé.
-${hasCv ? "Si un CV a été fourni et qu'un lien concret avec l'expérience réelle du candidat est pertinent pour cette question, glisse-le brièvement dans la phrase de conseil, sans champ séparé. Base-toi uniquement sur ce qui est réellement écrit dans le CV, n'invente rien." : "Aucun CV n'a été fourni : donne des conseils génériques mais toujours concrets et actionnables."}
+Étape 3 — Pour chaque question, donne :
+- un conseil de réponse en 2 éléments courts (une à deux phrases chacun, jamais un pavé de texte) :
+  - objectif : ce que le recruteur cherche réellement à évaluer avec cette question précise
+  - conseil : une recommandation concrète et actionnable sur le fond de la réponse (QUOI dire), en 1 à 2 phrases courtes maximum — jamais une seule phrase à rallonge qui empile plusieurs idées avec des virgules. Mentionne un point de vigilance uniquement s'il est vraiment utile pour cette question précise.
+${hasCv ? "  Si un CV a été fourni et qu'un lien concret avec l'expérience réelle du candidat est pertinent pour cette question, glisse-le brièvement dans la phrase de conseil, sans champ séparé. Base-toi uniquement sur ce qui est réellement écrit dans le CV, n'invente rien." : "  Aucun CV n'a été fourni : donne des conseils génériques mais toujours concrets et actionnables."}
+- astuce : une astuce courte (une phrase) sur COMMENT structurer la réponse à cette question précise (par exemple : par quoi commencer, quel enchaînement suivre, quel format adopter — la méthode STAR si pertinent pour une question comportementale ou situationnelle). Ce champ porte sur la forme et la structuration, jamais sur le contenu déjà couvert par le champ conseil — ne répète pas la même idée dans les deux champs.
 
 ${hasCv ? `Étape 4 — Analyse le CV du candidat pour identifier entre 3 et 5 points de vigilance que le recruteur va probablement creuser en entretien (par exemple : trou de carrière, changement de secteur ou de métier, compétence mentionnée mais jamais illustrée par une expérience concrète, poste occupé sur une durée courte, écart entre le niveau du poste visé et l'expérience réelle, etc.). N'en force pas 5 si le CV n'en présente que 3 de façon crédible : reste honnête, n'invente jamais un problème qui n'existe pas. Pour chaque point, donne :
 - point : le point de vigilance identifié, formulé de façon factuelle et neutre, jamais accusatrice
 - questionProbable : la question précise que le recruteur poserait probablement à ce sujet
 - conseil : comment y répondre sereinement et avec confiance, de façon concrète et actionnable
 Base-toi uniquement sur ce qui est réellement écrit dans le CV, n'invente rien.` : ""}
+
+Étape ${hasCv ? "5" : "4"} — Génère aussi entre 2 et 3 questions pertinentes que LE CANDIDAT pourrait poser au recruteur en fin d'entretien, basées sur le poste et, si elle est mentionnée dans la fiche, sur l'entreprise elle-même (pas des questions génériques passe-partout). Pour chacune, donne dans "pourquoi" une phrase expliquant en quoi cette question est intéressante à poser dans ce contexte précis.
 
 Important : si cette même fiche de poste a déjà été utilisée pour une génération précédente, les nouvelles questions doivent être différentes — varie l'angle abordé, l'ordre, la formulation et les exemples suggérés dans les conseils. Ne reformule jamais une génération précédente à l'identique. Le message utilisateur te donnera une consigne d'orientation à privilégier pour cette génération précise ; suis-la sans jamais réduire la pertinence des questions par rapport à la fiche de poste (et au CV le cas échéant) — la variété porte sur l'angle et la formulation, jamais sur la pertinence.
 Réponds en français.`;
@@ -134,6 +168,7 @@ export async function POST(request: Request) {
     cvBase64?: string;
     cvFilename?: string;
     questionCount?: number;
+    niveau?: string;
   };
   try {
     body = await request.json();
@@ -141,7 +176,23 @@ export async function POST(request: Request) {
     return json({ error: "Corps de requête invalide." }, 400, origin);
   }
 
-  const { text, pdfBase64, cvBase64, questionCount = DEFAULT_QUESTIONS } = body;
+  const {
+    text,
+    pdfBase64,
+    cvBase64,
+    questionCount = DEFAULT_QUESTIONS,
+    niveau = DEFAULT_NIVEAU,
+  } = body;
+
+  if (!NIVEAU_OPTIONS.includes(niveau as Niveau)) {
+    return json(
+      {
+        error: `Le niveau doit être l'une des valeurs suivantes : ${NIVEAU_OPTIONS.map((n) => NIVEAU_LABELS[n]).join(", ")}.`,
+      },
+      400,
+      origin,
+    );
+  }
 
   if (!text?.trim() && !pdfBase64) {
     return json(
@@ -251,16 +302,17 @@ export async function POST(request: Request) {
   );
 
   const hasCv = Boolean(cvBase64);
+  const niveauTyped = niveau as Niveau;
 
   try {
     const response = await client.messages.parse({
       model: "claude-sonnet-5",
-      max_tokens: 12000,
+      max_tokens: 14000,
       output_config: {
         effort: "high",
         format: zodOutputFormat(buildQuestionsSchema(questionCount, hasCv)),
       },
-      system: buildSystemPrompt(questionCount, hasCv),
+      system: buildSystemPrompt(questionCount, hasCv, niveauTyped),
       messages: [{ role: "user", content: userContent }],
     });
 

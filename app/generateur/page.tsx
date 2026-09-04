@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AlertCircle, AlertTriangle, Lock, MessageSquare, Sparkles, Target } from "lucide-react";
+import {
+  AlertCircle,
+  AlertTriangle,
+  Compass,
+  Lock,
+  MessageSquare,
+  Sparkles,
+  Target,
+} from "lucide-react";
 import { SiteHeader } from "../components/SiteHeader";
 import { SiteFooter } from "../components/SiteFooter";
 import { SideDecoration } from "../components/SideDecoration";
@@ -37,7 +45,21 @@ type Question = {
   question: string;
   categorie: Categorie;
   conseil: Conseil;
+  astuce: string;
 };
+
+type Niveau = "debutant" | "intermediaire" | "confirme";
+
+type QuestionAPoser = {
+  question: string;
+  pourquoi: string;
+};
+
+const NIVEAU_OPTIONS: { value: Niveau; label: string }[] = [
+  { value: "debutant", label: "Débutant" },
+  { value: "intermediaire", label: "Intermédiaire" },
+  { value: "confirme", label: "Confirmé" },
+];
 
 type Analyse = {
   competencesCles: string[];
@@ -198,6 +220,7 @@ function QuestionCard({
       <div className="ml-11 mt-3 space-y-2 rounded-lg border-l-4 border-emerald-500 bg-emerald-50 p-3 sm:ml-[52px] sm:p-4">
         <ConseilRow icon={Target} label="Ce que ça évalue" text={question.conseil.objectif} />
         <ConseilRow icon={LightbulbIcon} label="Conseil" text={question.conseil.conseil} />
+        <ConseilRow icon={Compass} label="Astuce" text={question.astuce} />
       </div>
 
       <div className="ml-11 mt-3 sm:ml-[52px]">
@@ -310,7 +333,11 @@ type Mode = "text" | "pdf";
 
 const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
-const GENERATION_TIMEOUT_MS = 45_000;
+// La generation combine desormais analyse + questions + astuces + points CV +
+// questions a poser en un seul appel : un delai plus genereux que le feedback
+// (sortie plus courte) est necessaire, notamment avec CV + 20 questions.
+const GENERATION_TIMEOUT_MS = 90_000;
+const FEEDBACK_TIMEOUT_MS = 45_000;
 const GENERIC_ERROR_MESSAGE = "Une erreur est survenue, réessaie dans quelques instants.";
 
 function fileToBase64(file: File): Promise<string> {
@@ -333,11 +360,13 @@ export default function GenerateurPage() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [questionCount, setQuestionCount] = useState(FREE_TRIAL_QUESTION_COUNT);
+  const [niveau, setNiveau] = useState<Niveau>("intermediaire");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[] | null>(null);
   const [analyse, setAnalyse] = useState<Analyse | null>(null);
   const [cvVigilance, setCvVigilance] = useState<CvVigilancePoint[] | null>(null);
+  const [questionsAPoser, setQuestionsAPoser] = useState<QuestionAPoser[] | null>(null);
   const [mastered, setMastered] = useState<Set<number>>(new Set());
   const [answers, setAnswers] = useState<Record<number, AnswerState>>({});
   // Limitation temporaire "un essai gratuit par appareil" — voir app/lib/free-trial.ts
@@ -380,7 +409,7 @@ export default function GenerateurPage() {
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), GENERATION_TIMEOUT_MS);
+      const timeoutId = setTimeout(() => controller.abort(), FEEDBACK_TIMEOUT_MS);
 
       let res: Response;
       try {
@@ -446,6 +475,7 @@ export default function GenerateurPage() {
     setQuestions(null);
     setAnalyse(null);
     setCvVigilance(null);
+    setQuestionsAPoser(null);
 
     // Garde-fou : le bouton est désactivé dans ce cas, mais on protège aussi
     // l'appel API directement. Voir app/lib/free-trial.ts.
@@ -467,7 +497,8 @@ export default function GenerateurPage() {
         cvBase64?: string;
         cvFilename?: string;
         questionCount?: number;
-      } = { questionCount };
+        niveau?: Niveau;
+      } = { questionCount, niveau };
 
       if (mode === "text") {
         payload.text = jobText;
@@ -500,6 +531,7 @@ export default function GenerateurPage() {
         questions?: Question[];
         analyse?: Analyse;
         pointsVigilanceCv?: CvVigilancePoint[];
+        questionsAPoser?: QuestionAPoser[];
         error?: string;
       };
       try {
@@ -522,6 +554,7 @@ export default function GenerateurPage() {
       setQuestions(data.questions);
       setAnalyse(data.analyse ?? null);
       setCvVigilance(data.pointsVigilanceCv ?? null);
+      setQuestionsAPoser(data.questionsAPoser ?? null);
       setMastered(new Set());
       setAnswers({});
       markFreeTrialUsed();
@@ -771,6 +804,27 @@ export default function GenerateurPage() {
               )}
             </div>
 
+            <div className="mt-6">
+              <p className="mb-2 text-sm font-medium text-slate-300">Niveau</p>
+              <div className="grid grid-cols-3 gap-2">
+                {NIVEAU_OPTIONS.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setNiveau(value)}
+                    aria-pressed={niveau === value}
+                    className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                      niveau === value
+                        ? "border-emerald-500 bg-emerald-500 text-white"
+                        : "border-white/15 bg-transparent text-slate-300 hover:border-white/30 hover:bg-white/5"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-xs text-slate-500">
               <Lock className="h-3.5 w-3.5 flex-none" />
               Vos documents ne sont jamais stockés, ils sont utilisés
@@ -950,6 +1004,35 @@ export default function GenerateurPage() {
                         text={item.conseil}
                         accentClassName="text-amber-600"
                         labelClassName="text-amber-700"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {questionsAPoser && questionsAPoser.length > 0 && (
+            <section className="mt-10">
+              <div className="mb-4 inline-flex animate-fade-in items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-700">
+                <MessageSquare className="h-4 w-4" />
+                Questions à poser au recruteur
+              </div>
+              <div className="space-y-4">
+                {questionsAPoser.map((item, i) => (
+                  <div
+                    key={i}
+                    style={{ animationDelay: `${i * 60}ms` }}
+                    className="animate-fade-in-up rounded-2xl border border-slate-200 bg-white p-5 shadow-sm [animation-fill-mode:backwards] sm:p-6"
+                  >
+                    <p className="font-semibold text-slate-900 sm:text-lg">{item.question}</p>
+                    <div className="mt-3 space-y-2 rounded-lg border-l-4 border-sky-400 bg-sky-50 p-3 sm:p-4">
+                      <ConseilRow
+                        icon={LightbulbIcon}
+                        label="Pourquoi la poser"
+                        text={item.pourquoi}
+                        accentClassName="text-sky-600"
+                        labelClassName="text-sky-700"
                       />
                     </div>
                   </div>
