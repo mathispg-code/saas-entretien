@@ -5,6 +5,12 @@ import { z } from "zod";
 import { GENERIC_ERROR_MESSAGE, json, optionsResponse } from "../../lib/api-response";
 
 export const runtime = "nodejs";
+// La generation (analyse + questions + astuces + points CV + questions a
+// poser) peut prendre plus de 60s pour 20 questions avec CV. Sur Vercel, le
+// defaut sans ce reglage est bien plus bas (10s sur Hobby) : 60 est le
+// maximum autorise sur le plan Hobby, a verifier/augmenter si le plan le
+// permet et si des coupures apparaissent en production sur les gros volumes.
+export const maxDuration = 60;
 
 const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
 const DEFAULT_QUESTIONS = 10;

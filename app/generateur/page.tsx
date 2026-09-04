@@ -1,333 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  AlertCircle,
-  AlertTriangle,
-  Compass,
-  Lock,
-  MessageSquare,
-  Sparkles,
-  Target,
-} from "lucide-react";
+import { Lock } from "lucide-react";
 import { SiteHeader } from "../components/SiteHeader";
 import { SiteFooter } from "../components/SiteFooter";
 import { SideDecoration } from "../components/SideDecoration";
-import {
-  CheckIcon,
-  ClockIcon,
-  DocumentIcon,
-  LightbulbIcon,
-  SpinnerIcon,
-  UserIcon,
-  ZapIcon,
-} from "../components/icons";
+import { ClockIcon, DocumentIcon, SpinnerIcon, UserIcon, ZapIcon } from "../components/icons";
 import {
   FREE_TRIAL_LOCKED_MESSAGE,
   FREE_TRIAL_QUESTION_COUNT,
   hasUsedFreeTrial,
   markFreeTrialUsed,
 } from "../lib/free-trial";
-
-type Categorie =
-  | "technique"
-  | "comportementale"
-  | "situationnelle"
-  | "motivation"
-  | "culture";
-
-type Conseil = {
-  objectif: string;
-  conseil: string;
-};
-
-type Question = {
-  question: string;
-  categorie: Categorie;
-  conseil: Conseil;
-  astuce: string;
-};
-
-type Niveau = "debutant" | "intermediaire" | "confirme";
-
-type QuestionAPoser = {
-  question: string;
-  pourquoi: string;
-};
-
-const NIVEAU_OPTIONS: { value: Niveau; label: string }[] = [
-  { value: "debutant", label: "Débutant" },
-  { value: "intermediaire", label: "Intermédiaire" },
-  { value: "confirme", label: "Confirmé" },
-];
-
-type Analyse = {
-  competencesCles: string[];
-  responsabilitesPrincipales: string[];
-  niveauSeniorite: string;
-  signauxDistinctifs: string[];
-};
-
-type CvVigilancePoint = {
-  point: string;
-  questionProbable: string;
-  conseil: string;
-};
-
-type FeedbackResult = {
-  pointsForts: string[];
-  pointsAAmeliorer: string[];
-  structureStar?: { respectee: boolean; commentaire: string };
-  suggestion: string;
-};
-
-type AnswerState = {
-  showBox: boolean;
-  text: string;
-  loading: boolean;
-  result: FeedbackResult | null;
-  error: string | null;
-};
-
-const DEFAULT_ANSWER_STATE: AnswerState = {
-  showBox: false,
-  text: "",
-  loading: false,
-  result: null,
-  error: null,
-};
-
-const MAX_ANSWER_LENGTH = 2000;
-
-const CATEGORY_LABELS: Record<Categorie, string> = {
-  technique: "Technique",
-  comportementale: "Comportemental",
-  situationnelle: "Mise en situation",
-  motivation: "Motivation",
-  culture: "Culture d'entreprise",
-};
-
-const CATEGORY_STYLES: Record<Categorie, string> = {
-  technique: "border-sky-200 bg-sky-50 text-sky-700",
-  comportementale: "border-violet-200 bg-violet-50 text-violet-700",
-  situationnelle: "border-amber-200 bg-amber-50 text-amber-700",
-  motivation: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  culture: "border-rose-200 bg-rose-50 text-rose-700",
-};
-
-function ConseilRow({
-  icon: Icon,
-  label,
-  text,
-  accentClassName = "text-emerald-600",
-  labelClassName = "text-emerald-700",
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  text: string;
-  accentClassName?: string;
-  labelClassName?: string;
-}) {
-  return (
-    <div className="flex gap-2">
-      <Icon className={`mt-0.5 h-3.5 w-3.5 flex-none ${accentClassName}`} />
-      <p className="text-sm text-slate-700">
-        <span className={`font-semibold ${labelClassName}`}>{label} : </span>
-        {text}
-      </p>
-    </div>
-  );
-}
-
-function FeedbackList({
-  icon: Icon,
-  iconClassName,
-  label,
-  items,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  iconClassName: string;
-  label: string;
-  items: string[];
-}) {
-  if (items.length === 0) {
-    return null;
-  }
-  return (
-    <div className="flex gap-2">
-      <Icon className={`mt-0.5 h-3.5 w-3.5 flex-none ${iconClassName}`} />
-      <div className="text-sm text-slate-200">
-        <span className={`font-semibold ${iconClassName}`}>{label}</span>
-        <ul className="mt-1 list-inside list-disc space-y-0.5">
-          {items.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-function QuestionCard({
-  index,
-  question,
-  isMastered,
-  onToggleMastered,
-  answerState,
-  onShowAnswerBox,
-  onAnswerChange,
-  onSubmitFeedback,
-}: {
-  index: number;
-  question: Question;
-  isMastered: boolean;
-  onToggleMastered: () => void;
-  answerState: AnswerState;
-  onShowAnswerBox: () => void;
-  onAnswerChange: (text: string) => void;
-  onSubmitFeedback: () => void;
-}) {
-  return (
-    <div
-      style={{ animationDelay: `${index * 60}ms` }}
-      className="animate-fade-in-up rounded-2xl border border-slate-200 bg-white p-5 shadow-sm [animation-fill-mode:backwards] transition hover:shadow-md sm:p-6"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex gap-3 sm:gap-4">
-          <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-navy-600 text-sm font-bold text-white sm:h-9 sm:w-9">
-            {index + 1}
-          </span>
-          <div className="pt-0.5">
-            <span
-              className={`mb-1.5 inline-block rounded-full border px-2 py-0.5 text-[10px] font-medium ${CATEGORY_STYLES[question.categorie]}`}
-            >
-              {CATEGORY_LABELS[question.categorie]}
-            </span>
-            <p className="font-semibold text-slate-900 sm:text-lg">{question.question}</p>
-          </div>
-        </div>
-        <label className="flex flex-none cursor-pointer select-none items-center gap-1.5 pt-1">
-          <input
-            type="checkbox"
-            checked={isMastered}
-            onChange={onToggleMastered}
-            className="h-4 w-4 cursor-pointer rounded accent-emerald-500"
-          />
-          <span className="hidden text-xs text-slate-400 sm:inline">Maîtrisée</span>
-        </label>
-      </div>
-
-      <div className="ml-11 mt-3 space-y-2 rounded-lg border-l-4 border-emerald-500 bg-emerald-50 p-3 sm:ml-[52px] sm:p-4">
-        <ConseilRow icon={Target} label="Ce que ça évalue" text={question.conseil.objectif} />
-        <ConseilRow icon={LightbulbIcon} label="Conseil" text={question.conseil.conseil} />
-        <ConseilRow icon={Compass} label="Astuce" text={question.astuce} />
-      </div>
-
-      <div className="ml-11 mt-3 sm:ml-[52px]">
-        {!answerState.showBox ? (
-          <button
-            type="button"
-            onClick={onShowAnswerBox}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-navy-700 transition hover:border-emerald-300 hover:text-emerald-700"
-          >
-            <MessageSquare className="h-3.5 w-3.5" />
-            Répondre à cette question
-          </button>
-        ) : (
-          <div>
-            <textarea
-              value={answerState.text}
-              onChange={(e) => onAnswerChange(e.target.value.slice(0, MAX_ANSWER_LENGTH))}
-              placeholder="Rédige ta réponse ici…"
-              rows={4}
-              className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30"
-            />
-            <div className="mt-1.5 flex items-center justify-between gap-3">
-              <span
-                className={`text-xs ${
-                  answerState.text.length >= MAX_ANSWER_LENGTH
-                    ? "font-medium text-rose-500"
-                    : "text-slate-400"
-                }`}
-              >
-                {answerState.text.length} / {MAX_ANSWER_LENGTH}
-              </span>
-              <button
-                type="button"
-                onClick={onSubmitFeedback}
-                disabled={!answerState.text.trim() || answerState.loading}
-                className="inline-flex flex-none items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-sm font-semibold text-navy-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
-              >
-                {answerState.loading ? (
-                  <>
-                    <SpinnerIcon className="h-3.5 w-3.5" />
-                    Analyse en cours…
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Obtenir un feedback
-                  </>
-                )}
-              </button>
-            </div>
-
-            {answerState.error && (
-              <p className="mt-2 rounded-lg border border-rose-200 bg-rose-50 p-2 text-sm text-rose-600">
-                {answerState.error}
-              </p>
-            )}
-
-            {answerState.result && (
-              <div className="mt-3 rounded-2xl border border-white/10 bg-gradient-to-br from-[#0F2E4C] to-[#050B14] p-4 shadow-lg sm:p-5">
-                <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-emerald-300">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Feedback sur ta réponse
-                </div>
-                <div className="space-y-3">
-                  <FeedbackList
-                    icon={CheckIcon}
-                    iconClassName="text-emerald-400"
-                    label="Points forts"
-                    items={answerState.result.pointsForts}
-                  />
-                  <FeedbackList
-                    icon={AlertCircle}
-                    iconClassName="text-amber-400"
-                    label="À améliorer"
-                    items={answerState.result.pointsAAmeliorer}
-                  />
-                  {answerState.result.structureStar && (
-                    <div className="flex gap-2">
-                      <Target className="mt-0.5 h-3.5 w-3.5 flex-none text-sky-300" />
-                      <p className="text-sm text-slate-200">
-                        <span className="font-semibold text-sky-300">
-                          Méthode STAR{" "}
-                          {answerState.result.structureStar.respectee
-                            ? "respectée"
-                            : "non respectée"}{" "}
-                          :{" "}
-                        </span>
-                        {answerState.result.structureStar.commentaire}
-                      </p>
-                    </div>
-                  )}
-                  <div className="flex gap-2">
-                    <LightbulbIcon className="mt-0.5 h-3.5 w-3.5 flex-none text-emerald-400" />
-                    <p className="text-sm text-slate-200">
-                      <span className="font-semibold text-emerald-300">Suggestion : </span>
-                      {answerState.result.suggestion}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+import { AnalyseCard } from "./components/AnalyseCard";
+import { ResultsTabs } from "./components/ResultsTabs";
+import { GENERIC_ERROR_MESSAGE, NIVEAU_OPTIONS } from "./types";
+import type { Analyse, CvVigilancePoint, Niveau, Question, QuestionAPoser } from "./types";
 
 type Mode = "text" | "pdf";
 
@@ -336,9 +24,8 @@ const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 // La generation combine desormais analyse + questions + astuces + points CV +
 // questions a poser en un seul appel : un delai plus genereux que le feedback
 // (sortie plus courte) est necessaire, notamment avec CV + 20 questions.
-const GENERATION_TIMEOUT_MS = 90_000;
-const FEEDBACK_TIMEOUT_MS = 45_000;
-const GENERIC_ERROR_MESSAGE = "Une erreur est survenue, réessaie dans quelques instants.";
+// Mesure empirique : ~82s pour 5 questions + CV, prevoir plus large pour 20.
+const GENERATION_TIMEOUT_MS = 150_000;
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -367,8 +54,10 @@ export default function GenerateurPage() {
   const [analyse, setAnalyse] = useState<Analyse | null>(null);
   const [cvVigilance, setCvVigilance] = useState<CvVigilancePoint[] | null>(null);
   const [questionsAPoser, setQuestionsAPoser] = useState<QuestionAPoser[] | null>(null);
-  const [mastered, setMastered] = useState<Set<number>>(new Set());
-  const [answers, setAnswers] = useState<Record<number, AnswerState>>({});
+  // Incremente a chaque generation reussie : utilise comme key sur ResultsTabs
+  // pour forcer un remontage propre (onglet actif, cartes maitrisees, reponses
+  // en cours redemarrent a zero sur un nouveau resultat).
+  const [resultId, setResultId] = useState(0);
   // Limitation temporaire "un essai gratuit par appareil" — voir app/lib/free-trial.ts
   const [trialUsed, setTrialUsed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -378,87 +67,6 @@ export default function GenerateurPage() {
   useEffect(() => {
     setTrialUsed(hasUsedFreeTrial());
   }, []);
-
-  function toggleMastered(index: number) {
-    setMastered((prev) => {
-      const next = new Set(prev);
-      if (next.has(index)) {
-        next.delete(index);
-      } else {
-        next.add(index);
-      }
-      return next;
-    });
-  }
-
-  function updateAnswer(index: number, patch: Partial<AnswerState>) {
-    setAnswers((prev) => ({
-      ...prev,
-      [index]: { ...(prev[index] ?? DEFAULT_ANSWER_STATE), ...patch },
-    }));
-  }
-
-  async function handleFeedback(index: number, question: Question) {
-    const state = answers[index] ?? DEFAULT_ANSWER_STATE;
-    const answerText = state.text.trim();
-    if (!answerText || state.loading) {
-      return;
-    }
-
-    updateAnswer(index, { loading: true, error: null, result: null });
-
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), FEEDBACK_TIMEOUT_MS);
-
-      let res: Response;
-      try {
-        res = await fetch("/api/feedback", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            question: question.question,
-            categorie: question.categorie,
-            answer: answerText,
-            jobContext: analyse,
-          }),
-          signal: controller.signal,
-        });
-      } finally {
-        clearTimeout(timeoutId);
-      }
-
-      let data: FeedbackResult & { error?: string };
-      try {
-        data = await res.json();
-      } catch {
-        updateAnswer(index, { loading: false, error: GENERIC_ERROR_MESSAGE });
-        return;
-      }
-
-      if (!res.ok) {
-        updateAnswer(index, { loading: false, error: data.error ?? GENERIC_ERROR_MESSAGE });
-        return;
-      }
-
-      if (!data.pointsForts || !data.pointsAAmeliorer || !data.suggestion) {
-        updateAnswer(index, { loading: false, error: GENERIC_ERROR_MESSAGE });
-        return;
-      }
-
-      updateAnswer(index, {
-        loading: false,
-        result: {
-          pointsForts: data.pointsForts,
-          pointsAAmeliorer: data.pointsAAmeliorer,
-          structureStar: data.structureStar,
-          suggestion: data.suggestion,
-        },
-      });
-    } catch {
-      updateAnswer(index, { loading: false, error: GENERIC_ERROR_MESSAGE });
-    }
-  }
 
   useEffect(() => {
     if (questions && questions.length > 0) {
@@ -555,8 +163,7 @@ export default function GenerateurPage() {
       setAnalyse(data.analyse ?? null);
       setCvVigilance(data.pointsVigilanceCv ?? null);
       setQuestionsAPoser(data.questionsAPoser ?? null);
-      setMastered(new Set());
-      setAnswers({});
+      setResultId((id) => id + 1);
       markFreeTrialUsed();
       setTrialUsed(true);
     } catch {
@@ -892,154 +499,15 @@ export default function GenerateurPage() {
 
       {questions && questions.length > 0 && (
         <main ref={resultsRef} className="mx-auto max-w-4xl scroll-mt-20 px-4 pb-16 pt-10">
-          {analyse && (
-            <div className="mb-6 animate-fade-in rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-navy-700">
-                <DocumentIcon className="h-4 w-4 text-emerald-500" />
-                Analyse du poste
-              </h3>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">
-                    Compétences clés
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {analyse.competencesCles.map((c) => (
-                      <span
-                        key={c}
-                        className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700"
-                      >
-                        {c}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">
-                    Niveau de séniorité
-                  </p>
-                  <p className="text-sm text-slate-700">{analyse.niveauSeniorite}</p>
-                </div>
-                <div>
-                  <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">
-                    Responsabilités principales
-                  </p>
-                  <ul className="list-inside list-disc space-y-0.5 text-sm text-slate-700">
-                    {analyse.responsabilitesPrincipales.map((r) => (
-                      <li key={r}>{r}</li>
-                    ))}
-                  </ul>
-                </div>
-                {analyse.signauxDistinctifs.length > 0 && (
-                  <div>
-                    <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">
-                      Signaux distinctifs
-                    </p>
-                    <ul className="list-inside list-disc space-y-0.5 text-sm text-slate-700">
-                      {analyse.signauxDistinctifs.map((s) => (
-                        <li key={s}>{s}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          {analyse && <AnalyseCard analyse={analyse} />}
 
-          <section>
-            <div className="mb-4 inline-flex animate-fade-in items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
-              <CheckIcon className="h-4 w-4" />
-              {questions.length} questions générées
-            </div>
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-navy-800">
-                Vos questions d&apos;entretien
-              </h2>
-              <span className="text-sm font-medium text-slate-500">
-                {mastered.size}/{questions.length} questions maîtrisées
-              </span>
-            </div>
-            <div className="space-y-4">
-              {questions.map((q, i) => (
-                <QuestionCard
-                  key={i}
-                  index={i}
-                  question={q}
-                  isMastered={mastered.has(i)}
-                  onToggleMastered={() => toggleMastered(i)}
-                  answerState={answers[i] ?? DEFAULT_ANSWER_STATE}
-                  onShowAnswerBox={() => updateAnswer(i, { showBox: true })}
-                  onAnswerChange={(text) => updateAnswer(i, { text })}
-                  onSubmitFeedback={() => handleFeedback(i, q)}
-                />
-              ))}
-            </div>
-          </section>
-
-          {cvVigilance && cvVigilance.length > 0 && (
-            <section className="mt-10">
-              <div className="mb-4 inline-flex animate-fade-in items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700">
-                <AlertTriangle className="h-4 w-4" />
-                Points de vigilance sur ton CV
-              </div>
-              <div className="space-y-4">
-                {cvVigilance.map((item, i) => (
-                  <div
-                    key={i}
-                    style={{ animationDelay: `${i * 60}ms` }}
-                    className="animate-fade-in-up rounded-2xl border border-slate-200 bg-white p-5 shadow-sm [animation-fill-mode:backwards] sm:p-6"
-                  >
-                    <p className="font-semibold text-slate-900 sm:text-lg">{item.point}</p>
-                    <div className="mt-3 space-y-2 rounded-lg border-l-4 border-amber-400 bg-amber-50 p-3 sm:p-4">
-                      <ConseilRow
-                        icon={MessageSquare}
-                        label="Question probable"
-                        text={item.questionProbable}
-                        accentClassName="text-amber-600"
-                        labelClassName="text-amber-700"
-                      />
-                      <ConseilRow
-                        icon={LightbulbIcon}
-                        label="Comment y répondre"
-                        text={item.conseil}
-                        accentClassName="text-amber-600"
-                        labelClassName="text-amber-700"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {questionsAPoser && questionsAPoser.length > 0 && (
-            <section className="mt-10">
-              <div className="mb-4 inline-flex animate-fade-in items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-700">
-                <MessageSquare className="h-4 w-4" />
-                Questions à poser au recruteur
-              </div>
-              <div className="space-y-4">
-                {questionsAPoser.map((item, i) => (
-                  <div
-                    key={i}
-                    style={{ animationDelay: `${i * 60}ms` }}
-                    className="animate-fade-in-up rounded-2xl border border-slate-200 bg-white p-5 shadow-sm [animation-fill-mode:backwards] sm:p-6"
-                  >
-                    <p className="font-semibold text-slate-900 sm:text-lg">{item.question}</p>
-                    <div className="mt-3 space-y-2 rounded-lg border-l-4 border-sky-400 bg-sky-50 p-3 sm:p-4">
-                      <ConseilRow
-                        icon={LightbulbIcon}
-                        label="Pourquoi la poser"
-                        text={item.pourquoi}
-                        accentClassName="text-sky-600"
-                        labelClassName="text-sky-700"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
+          <ResultsTabs
+            key={resultId}
+            questions={questions}
+            analyse={analyse}
+            cvVigilance={cvVigilance}
+            questionsAPoser={questionsAPoser}
+          />
         </main>
       )}
 
