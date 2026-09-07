@@ -18,6 +18,7 @@ export function ResultsActionBar({
   disabled = false,
   generationId,
   paid,
+  onUnlockClick,
 }: {
   questions: Question[];
   questionsAPoser: QuestionAPoser[] | null;
@@ -25,6 +26,7 @@ export function ResultsActionBar({
   disabled?: boolean;
   generationId: string | null;
   paid: boolean;
+  onUnlockClick: () => void;
 }) {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfError, setPdfError] = useState(false);
@@ -74,7 +76,7 @@ export function ResultsActionBar({
   return (
     <div className="mb-6 flex flex-wrap items-center justify-end gap-2">
       {!disabled && !paid ? (
-        <UnlockBanner generationId={generationId} compact />
+        <UnlockBanner generationId={generationId} compact onUnlockClick={onUnlockClick} />
       ) : (
         <button
           type="button"

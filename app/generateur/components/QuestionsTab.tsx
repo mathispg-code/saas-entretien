@@ -18,6 +18,7 @@ export function QuestionsTab({
   isStreaming,
   generationId,
   paid,
+  onUnlockClick,
 }: {
   questions: Question[];
   analyse: Analyse | null;
@@ -25,6 +26,7 @@ export function QuestionsTab({
   isStreaming: boolean;
   generationId: string | null;
   paid: boolean;
+  onUnlockClick: () => void;
 }) {
   const [mastered, setMastered] = useState<Set<number>>(new Set());
   const [answers, setAnswers] = useState<Record<number, AnswerState>>({});
@@ -143,6 +145,7 @@ export function QuestionsTab({
           <UnlockBanner
             generationId={generationId}
             description="Réponds à chaque question et reçois un feedback personnalisé de l'IA sur tes réponses."
+            onUnlockClick={onUnlockClick}
           />
         </div>
       )}
@@ -160,6 +163,7 @@ export function QuestionsTab({
             onAnswerChange={(text) => updateAnswer(i, { text })}
             onSubmitFeedback={() => handleFeedback(i, q)}
             locked={!paid}
+            onLockedClick={onUnlockClick}
           />
         ))}
       </div>

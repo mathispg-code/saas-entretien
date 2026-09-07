@@ -17,9 +17,11 @@ import type { CvVigilancePoint } from "../types";
 export function CvVigilanceTab({
   generationId,
   paid,
+  onUnlockClick,
 }: {
   generationId: string | null;
   paid: boolean;
+  onUnlockClick: () => void;
 }) {
   const [points, setPoints] = useState<CvVigilancePoint[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -67,6 +69,7 @@ export function CvVigilanceTab({
         <UnlockBanner
           generationId={generationId}
           description="Découvre les points que le recruteur va probablement creuser à propos de ton CV, et comment y répondre sereinement."
+          onUnlockClick={onUnlockClick}
         />
       </section>
     );

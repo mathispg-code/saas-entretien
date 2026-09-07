@@ -17,6 +17,7 @@ export function ResultsTabs({
   isStreaming,
   generationId,
   paid,
+  onUnlockClick,
 }: {
   questions: Question[];
   analyse: Analyse | null;
@@ -26,6 +27,7 @@ export function ResultsTabs({
   isStreaming: boolean;
   generationId: string | null;
   paid: boolean;
+  onUnlockClick: () => void;
 }) {
   const hasAPoserTab = Boolean(questionsAPoser && questionsAPoser.length > 0);
   const [activeTab, setActiveTab] = useState<TabKey>("questions");
@@ -66,10 +68,11 @@ export function ResultsTabs({
           isStreaming={isStreaming}
           generationId={generationId}
           paid={paid}
+          onUnlockClick={onUnlockClick}
         />
       )}
       {activeTab === "cv" && hasCv && (
-        <CvVigilanceTab generationId={generationId} paid={paid} />
+        <CvVigilanceTab generationId={generationId} paid={paid} onUnlockClick={onUnlockClick} />
       )}
       {activeTab === "aposer" && hasAPoserTab && (
         <QuestionsToAskTab items={questionsAPoser!} />

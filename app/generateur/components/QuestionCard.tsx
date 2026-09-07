@@ -14,6 +14,7 @@ export function QuestionCard({
   onAnswerChange,
   onSubmitFeedback,
   locked,
+  onLockedClick,
 }: {
   index: number;
   question: Question;
@@ -24,6 +25,7 @@ export function QuestionCard({
   onAnswerChange: (text: string) => void;
   onSubmitFeedback: () => void;
   locked: boolean;
+  onLockedClick: () => void;
 }) {
   return (
     <div
@@ -63,13 +65,15 @@ export function QuestionCard({
 
       <div className="ml-11 mt-3 sm:ml-[52px]">
         {locked ? (
-          <div
+          <button
+            type="button"
+            onClick={onLockedClick}
             title="Débloque l'accès complet pour répondre et recevoir un feedback"
-            className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-400"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-400 transition hover:border-emerald-300 hover:text-emerald-700"
           >
             <Lock className="h-3.5 w-3.5" />
             Feedback verrouillé
-          </div>
+          </button>
         ) : !answerState.showBox ? (
           <button
             type="button"

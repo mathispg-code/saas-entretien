@@ -17,11 +17,18 @@ import {
   getStoredGenerationId,
   storeGenerationId,
 } from "../lib/generation-id";
+import { hasSeenUnlockModal, markUnlockModalSeen } from "../lib/unlock-modal-seen";
 import { AnalyseCard } from "./components/AnalyseCard";
 import { ResultsActionBar } from "./components/ResultsActionBar";
 import { ResultsTabs } from "./components/ResultsTabs";
+import { UnlockModal } from "./components/UnlockModal";
 import { GENERIC_ERROR_MESSAGE } from "./types";
 import type { Analyse, Question, QuestionAPoser } from "./types";
+
+// Delai avant d'ouvrir automatiquement la popup de conversion apres une
+// generation gratuite terminee, pour ne pas entrer en collision avec le
+// scroll automatique vers les resultats.
+const AUTO_UNLOCK_MODAL_DELAY_MS = 700;
 
 type Mode = "text" | "pdf";
 
@@ -81,6 +88,12 @@ export default function GenerateurPage() {
   const [resultId, setResultId] = useState(0);
   // Limitation temporaire "un essai gratuit par appareil" — voir app/lib/free-trial.ts
   const [trialUsed, setTrialUsed] = useState(false);
+  // Popup de conversion vers le pack payant (voir UnlockModal). isAutoPopup
+  // change uniquement le libelle du bouton secondaire ("Plus tard" au clic
+  // sur un element verrouille, message plus specifique pour la popup
+  // automatique apres generation).
+  const [unlockModalOpen, setUnlockModalOpen] = useState(false);
+  const [isAutoPopup, setIsAutoPopup] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cvInputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -176,6 +189,7 @@ export default function GenerateurPage() {
     setQuestionsAPoser(null);
     setGenerationId(null);
     setPaid(false);
+    setUnlockModalOpen(false);
 
     // Garde-fou : le bouton est désactivé dans ce cas, mais on protège aussi
     // l'appel API directement. Voir app/lib/free-trial.ts.
@@ -196,6 +210,10 @@ export default function GenerateurPage() {
 
     let receivedDone = false;
     let receivedError: string | null = null;
+    // Suivi local plutot que de relire l'etat React generationId apres coup :
+    // setGenerationId ne met pas a jour la valeur capturee par cette closure
+    // au sein du meme appel de fonction (meme principe que receivedDone).
+    let capturedGenerationId: string | null = null;
     const controller = new AbortController();
     // Couvre tout le cycle (requete + lecture complete du flux) : voir le
     // commentaire sur GENERATION_TIMEOUT_MS plus haut.
@@ -279,6 +297,7 @@ export default function GenerateurPage() {
           switch (event.type) {
             case "generationId":
               if (typeof event.id === "string") {
+                capturedGenerationId = event.id;
                 setGenerationId(event.id);
                 storeGenerationId(event.id);
               }
@@ -307,6 +326,20 @@ export default function GenerateurPage() {
       if (receivedDone && !receivedError) {
         markFreeTrialUsed();
         setTrialUsed(true);
+
+        // Popup automatique de conversion : une seule fois par generation
+        // (jamais si deja vue, y compris apres un rechargement de page —
+        // voir app/lib/unlock-modal-seen.ts). paid est necessairement false
+        // ici : le paiement ne peut arriver qu'apres, via /api/checkout,
+        // qui exige un generationId deja existant.
+        if (capturedGenerationId && !hasSeenUnlockModal(capturedGenerationId)) {
+          const idToShow = capturedGenerationId;
+          setTimeout(() => {
+            markUnlockModalSeen(idToShow);
+            setIsAutoPopup(true);
+            setUnlockModalOpen(true);
+          }, AUTO_UNLOCK_MODAL_DELAY_MS);
+        }
       } else if (!receivedDone && !receivedError) {
         // La connexion s'est terminée sans message d'erreur explicite ni
         // événement "done" (coupure réseau, fonction serverless arrêtée en
@@ -377,6 +410,11 @@ export default function GenerateurPage() {
     if (cvInputRef.current) {
       cvInputRef.current.value = "";
     }
+  }
+
+  function openUnlockModal() {
+    setIsAutoPopup(false);
+    setUnlockModalOpen(true);
   }
 
   return (
@@ -639,6 +677,7 @@ export default function GenerateurPage() {
             disabled={loading}
             generationId={generationId}
             paid={paid}
+            onUnlockClick={openUnlockModal}
           />
 
           {analyse && <AnalyseCard analyse={analyse} />}
@@ -653,9 +692,17 @@ export default function GenerateurPage() {
             isStreaming={loading}
             generationId={generationId}
             paid={paid}
+            onUnlockClick={openUnlockModal}
           />
         </main>
       )}
+
+      <UnlockModal
+        open={unlockModalOpen}
+        onClose={() => setUnlockModalOpen(false)}
+        generationId={generationId}
+        secondaryLabel={isAutoPopup ? "Continuer avec mes 5 questions gratuites" : "Plus tard"}
+      />
 
       <SiteFooter />
     </div>

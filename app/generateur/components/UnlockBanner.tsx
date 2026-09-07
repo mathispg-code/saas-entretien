@@ -3,44 +3,39 @@
 import { useState } from "react";
 import { Lock } from "lucide-react";
 import { SpinnerIcon } from "../../components/icons";
+import { startCheckout } from "../lib/checkout";
 import { GENERIC_ERROR_MESSAGE } from "../types";
 
 const UNLOCK_LABEL = "Débloquer l'accès complet pour cet entretien";
 
-async function startCheckout(generationId: string): Promise<string> {
-  const res = await fetch("/api/checkout", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ generationId }),
-  });
-
-  const data: { url?: string; error?: string } = await res.json().catch(() => ({}));
-
-  if (!res.ok || !data.url) {
-    throw new Error(data.error ?? GENERIC_ERROR_MESSAGE);
-  }
-
-  return data.url;
-}
-
 /**
  * Bandeau de deverrouillage affiche a la place des fonctionnalites payantes
  * (feedback, analyse CV, export PDF) tant que la generation n'est pas payee.
- * Meme action partout : lance Stripe Checkout pour ce generationId precis.
+ *
+ * Si onUnlockClick est fourni, le clic ouvre la modale de conversion
+ * (UnlockModal) plutot que de lancer Stripe directement — c'est elle qui
+ * porte le vrai bouton de paiement. Sans cette prop, le bandeau garde son
+ * comportement d'origine (lance Stripe directement).
  */
 export function UnlockBanner({
   generationId,
   description,
   compact = false,
+  onUnlockClick,
 }: {
   generationId: string | null;
   description?: string;
   compact?: boolean;
+  onUnlockClick?: () => void;
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleUnlock() {
+    if (onUnlockClick) {
+      onUnlockClick();
+      return;
+    }
     if (!generationId || loading) {
       return;
     }
