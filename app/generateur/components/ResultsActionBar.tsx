@@ -31,6 +31,12 @@ export function ResultsActionBar({
   const [shareCopied, setShareCopied] = useState(false);
 
   async function handleExportPdf() {
+    // Garde-fou : l'UI empêche déjà cet appel tant que paid est false (le
+    // bouton est remplacé par le bandeau de déverrouillage ci-dessous), on
+    // protège aussi la fonction.
+    if (!paid) {
+      return;
+    }
     setPdfLoading(true);
     setPdfError(false);
     try {

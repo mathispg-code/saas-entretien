@@ -1,7 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
-import { GENERIC_ERROR_MESSAGE, json, optionsResponse } from "../../lib/api-response";
+import { GENERIC_ERROR_MESSAGE, PAYMENT_REQUIRED_MESSAGE, json, optionsResponse } from "../../lib/api-response";
+import { getGeneration } from "../../lib/supabase";
 
 export const runtime = "nodejs";
 
@@ -96,7 +97,6 @@ export async function POST(request: Request) {
     categorie?: string;
     answer?: string;
     jobContext?: JobContext;
-    // Reserve pour l'etape 3 (verification du paiement) : pas encore utilise.
     generationId?: string;
   };
   try {
@@ -105,10 +105,26 @@ export async function POST(request: Request) {
     return json({ error: "Corps de requête invalide." }, 400, origin);
   }
 
-  const { question, categorie, answer, jobContext } = body;
+  const { question, categorie, answer, jobContext, generationId } = body;
 
-  if (body.generationId !== undefined && !UUID_REGEX.test(body.generationId)) {
+  if (!generationId || !UUID_REGEX.test(generationId)) {
     return json({ error: "Identifiant de génération invalide." }, 400, origin);
+  }
+
+  let generation;
+  try {
+    generation = await getGeneration(generationId);
+  } catch (error) {
+    console.error("Erreur lors de la vérification du paiement avant feedback:", error);
+    return json({ error: GENERIC_ERROR_MESSAGE }, 500, origin);
+  }
+
+  if (!generation) {
+    return json({ error: "Génération introuvable." }, 404, origin);
+  }
+
+  if (!generation.paid) {
+    return json({ error: PAYMENT_REQUIRED_MESSAGE }, 402, origin);
   }
 
   if (!question?.trim() || !answer?.trim()) {

@@ -76,7 +76,7 @@ export function QuestionsTab({
             categorie: question.categorie,
             answer: answerText,
             jobContext: analyse,
-            ...(generationId ? { generationId } : {}),
+            generationId,
           }),
           signal: controller.signal,
         });

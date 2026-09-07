@@ -22,7 +22,22 @@ export async function GET(request: Request) {
     if (!generation) {
       return json({ error: "Génération introuvable." }, 404, origin);
     }
-    return json(generation, 200, origin);
+
+    // Les points de vigilance CV sont du contenu payant : jamais renvoyes
+    // ici, quel que soit le statut de paiement. hasCv indique seulement si
+    // un onglet CV doit exister ; le contenu se recupere via
+    // /api/cv-vigilance une fois la generation payee.
+    const { cvVigilance, ...resultWithoutCv } = generation.result ?? {};
+    const hasCv = Boolean(generation.result?.cvVigilance);
+
+    return json(
+      {
+        paid: generation.paid,
+        result: generation.result ? { ...resultWithoutCv, hasCv } : null,
+      },
+      200,
+      origin,
+    );
   } catch (error) {
     console.error("Erreur lors de la lecture du statut de génération:", error);
     return json({ error: GENERIC_ERROR_MESSAGE }, 500, origin);

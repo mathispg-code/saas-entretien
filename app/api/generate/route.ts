@@ -147,9 +147,11 @@ type StreamEvent =
   | { type: "generationId"; id: string }
   | { type: "analyse"; data: z.infer<typeof AnalyseSchema> }
   | { type: "question"; data: z.infer<typeof QuestionSchema> }
-  | { type: "vigilance"; data: z.infer<typeof VigilancePointSchema> }
   | { type: "aPoser"; data: z.infer<typeof APoserItemSchema> }
-  | { type: "done" }
+  // hasCv indique si un onglet CV doit exister, sans en reveler le contenu :
+  // les points de vigilance ne sont jamais streames ici (voir /api/cv-vigilance),
+  // uniquement persistes en base pour etre servis une fois la generation payee.
+  | { type: "done"; hasCv: boolean }
   | { type: "error"; message: string };
 
 function ndjsonResponse(
@@ -345,7 +347,6 @@ export async function POST(request: Request) {
 
     let emittedAnalyse = false;
     let emittedQuestions = 0;
-    let emittedVigilance = 0;
     let emittedAPoser = 0;
     let deadlineHit = false;
     let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
@@ -414,14 +415,11 @@ export async function POST(request: Request) {
           }
         }
 
-        if (Array.isArray(data.pointsVigilanceCv)) {
-          for (let i = emittedVigilance; i < data.pointsVigilanceCv.length; i++) {
-            const parsed = VigilancePointSchema.safeParse(data.pointsVigilanceCv[i]);
-            if (!parsed.success) break;
-            send({ type: "vigilance", data: parsed.data });
-            emittedVigilance++;
-          }
-        }
+        // Les points de vigilance CV ne sont jamais streames : c'est du
+        // contenu payant, seule /api/cv-vigilance les sert (apres
+        // verification du paiement). Ils sont neanmoins bien parses ici via
+        // la sortie structuree, puis persistes en base a la fin (voir plus
+        // bas) pour etre servis une fois la generation debloquee.
 
         if (Array.isArray(data.questionsAPoser)) {
           for (let i = emittedAPoser; i < data.questionsAPoser.length; i++) {
@@ -459,11 +457,6 @@ export async function POST(request: Request) {
       for (let i = emittedQuestions; i < output.questions.length; i++) {
         send({ type: "question", data: output.questions[i] });
       }
-      if (output.pointsVigilanceCv) {
-        for (let i = emittedVigilance; i < output.pointsVigilanceCv.length; i++) {
-          send({ type: "vigilance", data: output.pointsVigilanceCv[i] });
-        }
-      }
       for (let i = emittedAPoser; i < output.questionsAPoser.length; i++) {
         send({ type: "aPoser", data: output.questionsAPoser[i] });
       }
@@ -480,7 +473,7 @@ export async function POST(request: Request) {
         });
       }
 
-      send({ type: "done" });
+      send({ type: "done", hasCv });
     } catch (error) {
       clearTimeout(deadlineTimer);
       if (deadlineHit) {

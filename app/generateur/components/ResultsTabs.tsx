@@ -4,14 +4,14 @@ import { useState } from "react";
 import { QuestionsTab } from "./QuestionsTab";
 import { CvVigilanceTab } from "./CvVigilanceTab";
 import { QuestionsToAskTab } from "./QuestionsToAskTab";
-import type { Analyse, CvVigilancePoint, Question, QuestionAPoser } from "../types";
+import type { Analyse, Question, QuestionAPoser } from "../types";
 
 type TabKey = "questions" | "cv" | "aposer";
 
 export function ResultsTabs({
   questions,
   analyse,
-  cvVigilance,
+  hasCv,
   questionsAPoser,
   expectedQuestionCount,
   isStreaming,
@@ -20,20 +20,19 @@ export function ResultsTabs({
 }: {
   questions: Question[];
   analyse: Analyse | null;
-  cvVigilance: CvVigilancePoint[] | null;
+  hasCv: boolean;
   questionsAPoser: QuestionAPoser[] | null;
   expectedQuestionCount: number;
   isStreaming: boolean;
   generationId: string | null;
   paid: boolean;
 }) {
-  const hasCvTab = Boolean(cvVigilance && cvVigilance.length > 0);
   const hasAPoserTab = Boolean(questionsAPoser && questionsAPoser.length > 0);
   const [activeTab, setActiveTab] = useState<TabKey>("questions");
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: "questions", label: "Questions d'entretien" },
-    ...(hasCvTab ? [{ key: "cv" as const, label: "Mon CV" }] : []),
+    ...(hasCv ? [{ key: "cv" as const, label: "Mon CV" }] : []),
     ...(hasAPoserTab ? [{ key: "aposer" as const, label: "Questions à poser" }] : []),
   ];
 
@@ -69,8 +68,8 @@ export function ResultsTabs({
           paid={paid}
         />
       )}
-      {activeTab === "cv" && hasCvTab && (
-        <CvVigilanceTab points={cvVigilance!} generationId={generationId} paid={paid} />
+      {activeTab === "cv" && hasCv && (
+        <CvVigilanceTab generationId={generationId} paid={paid} />
       )}
       {activeTab === "aposer" && hasAPoserTab && (
         <QuestionsToAskTab items={questionsAPoser!} />

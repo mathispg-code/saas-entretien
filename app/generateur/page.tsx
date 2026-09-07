@@ -21,7 +21,7 @@ import { AnalyseCard } from "./components/AnalyseCard";
 import { ResultsActionBar } from "./components/ResultsActionBar";
 import { ResultsTabs } from "./components/ResultsTabs";
 import { GENERIC_ERROR_MESSAGE } from "./types";
-import type { Analyse, CvVigilancePoint, GenerationResult, Question, QuestionAPoser } from "./types";
+import type { Analyse, Question, QuestionAPoser } from "./types";
 
 type Mode = "text" | "pdf";
 
@@ -61,7 +61,11 @@ export default function GenerateurPage() {
   const [error, setError] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[] | null>(null);
   const [analyse, setAnalyse] = useState<Analyse | null>(null);
-  const [cvVigilance, setCvVigilance] = useState<CvVigilancePoint[] | null>(null);
+  // Indique si un onglet CV doit exister — jamais le contenu lui-meme, qui
+  // est du contenu payant recupere par CvVigilanceTab via /api/cv-vigilance
+  // une fois la generation debloquee. Voir app/api/generate et
+  // app/api/generation-status.
+  const [hasCv, setHasCv] = useState(false);
   const [questionsAPoser, setQuestionsAPoser] = useState<QuestionAPoser[] | null>(null);
   // Id de la generation en cours/la plus recente (table Supabase
   // "generations") — voir app/lib/generation-id.ts. Servira a l'etape 3 pour
@@ -117,12 +121,20 @@ export default function GenerateurPage() {
           return;
         }
 
-        const data: { paid: boolean; result: GenerationResult | null } = await res.json();
+        const data: {
+          paid: boolean;
+          result: {
+            analyse: Analyse;
+            questions: Question[];
+            questionsAPoser: QuestionAPoser[];
+            hasCv: boolean;
+          } | null;
+        } = await res.json();
         if (data.result) {
           setAnalyse(data.result.analyse);
           setQuestions(data.result.questions);
-          setCvVigilance(data.result.cvVigilance);
           setQuestionsAPoser(data.result.questionsAPoser);
+          setHasCv(data.result.hasCv);
         }
         setPaid(data.paid);
 
@@ -160,7 +172,7 @@ export default function GenerateurPage() {
     setError(null);
     setQuestions(null);
     setAnalyse(null);
-    setCvVigilance(null);
+    setHasCv(false);
     setQuestionsAPoser(null);
     setGenerationId(null);
     setPaid(false);
@@ -249,7 +261,13 @@ export default function GenerateurPage() {
             continue;
           }
 
-          let event: { type: string; data?: unknown; message?: string; id?: string };
+          let event: {
+            type: string;
+            data?: unknown;
+            message?: string;
+            id?: string;
+            hasCv?: boolean;
+          };
           try {
             event = JSON.parse(line);
           } catch {
@@ -271,14 +289,12 @@ export default function GenerateurPage() {
             case "question":
               setQuestions((prev) => [...(prev ?? []), event.data as Question]);
               break;
-            case "vigilance":
-              setCvVigilance((prev) => [...(prev ?? []), event.data as CvVigilancePoint]);
-              break;
             case "aPoser":
               setQuestionsAPoser((prev) => [...(prev ?? []), event.data as QuestionAPoser]);
               break;
             case "done":
               receivedDone = true;
+              setHasCv(Boolean(event.hasCv));
               break;
             case "error":
               receivedError = event.message ?? GENERIC_ERROR_MESSAGE;
@@ -631,7 +647,7 @@ export default function GenerateurPage() {
             key={resultId}
             questions={questions}
             analyse={analyse}
-            cvVigilance={cvVigilance}
+            hasCv={hasCv}
             questionsAPoser={questionsAPoser}
             expectedQuestionCount={questionCount}
             isStreaming={loading}
