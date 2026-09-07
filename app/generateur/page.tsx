@@ -434,6 +434,32 @@ export default function GenerateurPage() {
     setUnlockModalOpen(true);
   }
 
+  // Ouvre UnlockModal depuis le formulaire de generation (boutons "8"/"12
+  // questions" ou "Génération gratuite déjà utilisée" verrouillés), avant
+  // toute génération. Reutilise le generationId existant s'il y en a un
+  // (cas courant : une génération gratuite a déjà eu lieu — payer débloque
+  // aussi son feedback/CV/PDF en plus de lever le plafond de questions).
+  // Sinon (rare : generationId perdu), cree une ligne vide via
+  // /api/generation-placeholder juste pour avoir un id valide a payer.
+  async function openUnlockModalForLockedForm() {
+    if (!generationId) {
+      try {
+        const res = await fetch("/api/generation-placeholder", { method: "POST" });
+        const data: { id?: string; error?: string } = await res.json().catch(() => ({}));
+        if (!res.ok || !data.id) {
+          setError(data.error ?? GENERIC_ERROR_MESSAGE);
+          return;
+        }
+        setGenerationId(data.id);
+        storeGenerationId(data.id);
+      } catch {
+        setError(GENERIC_ERROR_MESSAGE);
+        return;
+      }
+    }
+    openUnlockModal();
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       <SiteHeader />
@@ -595,18 +621,34 @@ export default function GenerateurPage() {
                   // fois — voir app/lib/paid-history.ts.
                   const optionDisabled =
                     !hasEverPaidState && (trialUsed || count !== FREE_TRIAL_QUESTION_COUNT);
+                  // "8"/"12" verrouillés uniquement à cause de l'essai déjà
+                  // consommé (pas sur un appareil neuf, où c'est juste "à
+                  // venir") ouvrent la modale de paiement au clic plutôt que
+                  // de ne rien faire. "5" n'est jamais concerné.
+                  const opensUnlockModal = isLocked && count !== FREE_TRIAL_QUESTION_COUNT;
                   return (
                     <button
                       key={count}
                       type="button"
-                      onClick={() => setQuestionCount(count)}
-                      disabled={optionDisabled}
+                      onClick={
+                        opensUnlockModal
+                          ? openUnlockModalForLockedForm
+                          : () => setQuestionCount(count)
+                      }
+                      disabled={optionDisabled && !opensUnlockModal}
                       aria-pressed={questionCount === count}
+                      title={opensUnlockModal ? "Débloque l'accès complet pour générer plus de questions" : undefined}
                       className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
                         questionCount === count && !isLocked
                           ? "border-emerald-500 bg-emerald-500 text-white"
                           : "border-white/15 bg-transparent text-slate-300 hover:border-white/30 hover:bg-white/5"
-                      } ${optionDisabled ? "cursor-not-allowed opacity-40 hover:border-white/15 hover:bg-transparent" : ""}`}
+                      } ${
+                        optionDisabled
+                          ? opensUnlockModal
+                            ? "cursor-pointer opacity-40 hover:opacity-60"
+                            : "cursor-not-allowed opacity-40 hover:border-white/15 hover:bg-transparent"
+                          : ""
+                      }`}
                     >
                       {count} questions
                     </button>
@@ -630,9 +672,13 @@ export default function GenerateurPage() {
 
             <button
               type="button"
-              onClick={handleGenerate}
-              disabled={!canSubmit || loading || isLocked}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3.5 text-sm font-semibold text-navy-950 shadow-[0_0_35px_-8px_rgba(16,185,129,0.7)] transition hover:scale-[1.015] hover:bg-emerald-400 hover:shadow-[0_0_45px_-6px_rgba(16,185,129,0.85)] active:scale-[0.99] disabled:cursor-not-allowed disabled:scale-100 disabled:bg-white/10 disabled:text-slate-500 disabled:shadow-none"
+              onClick={isLocked ? openUnlockModalForLockedForm : handleGenerate}
+              disabled={isLocked ? false : !canSubmit || loading}
+              className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-semibold shadow-[0_0_35px_-8px_rgba(16,185,129,0.7)] transition active:scale-[0.99] ${
+                isLocked
+                  ? "cursor-pointer bg-white/10 text-slate-300 shadow-none hover:bg-white/15"
+                  : "bg-emerald-500 text-navy-950 hover:scale-[1.015] hover:bg-emerald-400 hover:shadow-[0_0_45px_-6px_rgba(16,185,129,0.85)] disabled:cursor-not-allowed disabled:scale-100 disabled:bg-white/10 disabled:text-slate-500 disabled:shadow-none"
+              }`}
             >
               {loading ? (
                 <>
