@@ -22,8 +22,8 @@ export const maxDuration = 60;
 const SOFT_DEADLINE_MS = 57_000;
 const SOFT_DEADLINE_MESSAGE = "La génération prend plus de temps que prévu, réessaie.";
 
-const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
-const DEFAULT_QUESTIONS = 10;
+const QUESTION_COUNT_OPTIONS = [5, 8, 12] as const;
+const DEFAULT_QUESTIONS = 8;
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_TEXT_LENGTH = 20_000;
 
@@ -345,11 +345,13 @@ export async function POST(request: Request) {
         model: "claude-sonnet-5",
         max_tokens: 14000,
         output_config: {
-          // Mesure empirique : "high" (et l'absence d'effort) declenchent une
-          // phase de raisonnement interne ("thinking") qui ajoute 20-30s+ au
-          // pire cas (CV + 20 questions : 83s sans effort, 62s en "high"),
-          // sans amelioration de qualite constatee. "medium" evite cette
-          // phase et reste autour de 52-54s dans les memes conditions.
+          // Mesure empirique (sur le pire cas d'alors, CV + 20 questions,
+          // desormais reduit a 12 questions max — voir QUESTION_COUNT_OPTIONS) :
+          // "high" (et l'absence d'effort) declenchent une phase de
+          // raisonnement interne ("thinking") qui ajoute 20-30s+ (83s sans
+          // effort, 62s en "high"), sans amelioration de qualite constatee.
+          // "medium" evite cette phase et reste autour de 52-54s ; avec un
+          // maximum de 12 questions desormais, la marge est encore meilleure.
           effort: "medium",
           format: zodOutputFormat(buildQuestionsSchema(questionCount, hasCv)),
         },

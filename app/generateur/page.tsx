@@ -20,7 +20,7 @@ import type { Analyse, CvVigilancePoint, Question, QuestionAPoser } from "./type
 
 type Mode = "text" | "pdf";
 
-const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const;
+const QUESTION_COUNT_OPTIONS = [5, 8, 12] as const;
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 // Filet de securite cote client : le serveur s'interrompt lui-meme a 57s
 // (voir SOFT_DEADLINE_MS dans app/api/generate/route.ts) et renvoie toujours
@@ -440,7 +440,7 @@ export default function GenerateurPage() {
               <p className="mb-2 text-sm font-medium text-slate-300">
                 Nombre de questions
               </p>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="grid grid-cols-3 gap-2">
                 {QUESTION_COUNT_OPTIONS.map((count) => {
                   // Essai gratuit limité à 5 questions — voir app/lib/free-trial.ts.
                   const optionDisabled =
