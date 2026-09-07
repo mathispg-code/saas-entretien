@@ -1,12 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Download, FileText, Lock, Sparkles, X } from "lucide-react";
+import { Download, FileText, Lock, Sparkles, Unlock, X } from "lucide-react";
 import { SpinnerIcon } from "../../components/icons";
 import { startCheckout } from "../lib/checkout";
 import { GENERIC_ERROR_MESSAGE } from "../types";
 
 const BENEFITS = [
+  {
+    icon: Unlock,
+    text: "Génération étendue jusqu'à 12 questions (au lieu de 5)",
+  },
   {
     icon: Sparkles,
     text: "Feedback personnalisé de l'IA sur chacune de tes réponses",
@@ -128,8 +132,12 @@ export function UnlockModal({
             id="unlock-modal-title"
             className="mt-4 text-center text-xl font-bold text-white sm:text-2xl"
           >
-            Débloque l&apos;accès complet pour cet entretien
+            Va plus loin dans ta préparation
           </h2>
+
+          <p className="mt-2 text-center text-sm text-slate-300">
+            Un entretien, ça ne se rejoue pas deux fois. Voici ce que tu débloques :
+          </p>
 
           <div className="mt-6 space-y-4">
             {BENEFITS.map(({ icon: Icon, text }) => (
@@ -143,7 +151,7 @@ export function UnlockModal({
           </div>
 
           <p className="mt-6 text-center text-xs text-slate-400">
-            3,99 € — paiement unique, pas d&apos;abonnement.
+            3,99 € — paiement unique.
           </p>
 
           <button
@@ -153,7 +161,7 @@ export function UnlockModal({
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3.5 text-sm font-semibold text-navy-950 shadow-[0_0_35px_-8px_rgba(16,185,129,0.7)] transition hover:scale-[1.015] hover:bg-emerald-400 hover:shadow-[0_0_45px_-6px_rgba(16,185,129,0.85)] active:scale-[0.99] disabled:cursor-not-allowed disabled:scale-100 disabled:bg-white/10 disabled:text-slate-500 disabled:shadow-none"
           >
             {loading ? <SpinnerIcon className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-            {loading ? "Redirection…" : "Débloquer l'accès complet — 3,99 €"}
+            {loading ? "Redirection…" : "Débloquer l'accès complet"}
           </button>
 
           {error && (

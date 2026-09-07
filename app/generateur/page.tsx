@@ -18,6 +18,7 @@ import {
   storeGenerationId,
 } from "../lib/generation-id";
 import { hasSeenUnlockModal, markUnlockModalSeen } from "../lib/unlock-modal-seen";
+import { hasEverPaid as getHasEverPaid, markHasEverPaid } from "../lib/paid-history";
 import { AnalyseCard } from "./components/AnalyseCard";
 import { ResultsActionBar } from "./components/ResultsActionBar";
 import { ResultsTabs } from "./components/ResultsTabs";
@@ -88,6 +89,12 @@ export default function GenerateurPage() {
   const [resultId, setResultId] = useState(0);
   // Limitation temporaire "un essai gratuit par appareil" — voir app/lib/free-trial.ts
   const [trialUsed, setTrialUsed] = useState(false);
+  // Vrai des que cet appareil a paye au moins une fois (n'importe quelle
+  // generation) — voir app/lib/paid-history.ts. Leve le blocage "un essai
+  // gratuit par appareil" et debloque les options 8/12 questions pour les
+  // generations suivantes ; ne rend jamais gratuit le feedback/l'analyse
+  // CV/le PDF d'une nouvelle generation, qui restent payants individuellement.
+  const [hasEverPaidState, setHasEverPaidState] = useState(false);
   // Popup de conversion vers le pack payant (voir UnlockModal). isAutoPopup
   // change uniquement le libelle du bouton secondaire ("Plus tard" au clic
   // sur un element verrouille, message plus specifique pour la popup
@@ -101,6 +108,7 @@ export default function GenerateurPage() {
 
   useEffect(() => {
     setTrialUsed(hasUsedFreeTrial());
+    setHasEverPaidState(getHasEverPaid());
 
     const storedId = getStoredGenerationId();
     if (!storedId) {
@@ -150,6 +158,10 @@ export default function GenerateurPage() {
           setHasCv(data.result.hasCv);
         }
         setPaid(data.paid);
+        if (data.paid) {
+          markHasEverPaid();
+          setHasEverPaidState(true);
+        }
 
         if (data.paid || attempt === maxAttempts - 1) {
           return;
@@ -180,6 +192,10 @@ export default function GenerateurPage() {
   const canSubmit =
     (mode === "text" && jobText.trim().length > 0) ||
     (mode === "pdf" && pdfFile !== null);
+  // Essai gratuit consomme et jamais paye sur cet appareil : bloque une
+  // nouvelle generation. Leve des que hasEverPaidState est vrai — voir
+  // app/lib/paid-history.ts.
+  const isLocked = trialUsed && !hasEverPaidState;
 
   async function handleGenerate() {
     setError(null);
@@ -192,8 +208,9 @@ export default function GenerateurPage() {
     setUnlockModalOpen(false);
 
     // Garde-fou : le bouton est désactivé dans ce cas, mais on protège aussi
-    // l'appel API directement. Voir app/lib/free-trial.ts.
-    if (trialUsed) {
+    // l'appel API directement. Voir app/lib/free-trial.ts. Leve des que
+    // l'appareil a deja paye une fois — voir app/lib/paid-history.ts.
+    if (trialUsed && !hasEverPaidState) {
       return;
     }
 
@@ -574,8 +591,10 @@ export default function GenerateurPage() {
               <div className="grid grid-cols-3 gap-2">
                 {QUESTION_COUNT_OPTIONS.map((count) => {
                   // Essai gratuit limité à 5 questions — voir app/lib/free-trial.ts.
+                  // Débloqué en entier dès que l'appareil a déjà payé une
+                  // fois — voir app/lib/paid-history.ts.
                   const optionDisabled =
-                    trialUsed || count !== FREE_TRIAL_QUESTION_COUNT;
+                    !hasEverPaidState && (trialUsed || count !== FREE_TRIAL_QUESTION_COUNT);
                   return (
                     <button
                       key={count}
@@ -584,7 +603,7 @@ export default function GenerateurPage() {
                       disabled={optionDisabled}
                       aria-pressed={questionCount === count}
                       className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                        questionCount === count && !trialUsed
+                        questionCount === count && !isLocked
                           ? "border-emerald-500 bg-emerald-500 text-white"
                           : "border-white/15 bg-transparent text-slate-300 hover:border-white/30 hover:bg-white/5"
                       } ${optionDisabled ? "cursor-not-allowed opacity-40 hover:border-white/15 hover:bg-transparent" : ""}`}
@@ -612,7 +631,7 @@ export default function GenerateurPage() {
             <button
               type="button"
               onClick={handleGenerate}
-              disabled={!canSubmit || loading || trialUsed}
+              disabled={!canSubmit || loading || isLocked}
               className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3.5 text-sm font-semibold text-navy-950 shadow-[0_0_35px_-8px_rgba(16,185,129,0.7)] transition hover:scale-[1.015] hover:bg-emerald-400 hover:shadow-[0_0_45px_-6px_rgba(16,185,129,0.85)] active:scale-[0.99] disabled:cursor-not-allowed disabled:scale-100 disabled:bg-white/10 disabled:text-slate-500 disabled:shadow-none"
             >
               {loading ? (
@@ -620,7 +639,7 @@ export default function GenerateurPage() {
                   <SpinnerIcon className="h-4 w-4" />
                   Génération en cours…
                 </>
-              ) : trialUsed ? (
+              ) : isLocked ? (
                 <>
                   <Lock className="h-4 w-4" />
                   Génération gratuite déjà utilisée
@@ -659,7 +678,7 @@ export default function GenerateurPage() {
         </div>
       </section>
 
-      {trialUsed && questions === null && (
+      {isLocked && questions === null && (
         <main className="mx-auto max-w-4xl px-4 pb-16 pt-10">
           <div className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
             <Lock className="mx-auto h-8 w-8 text-slate-400" />
