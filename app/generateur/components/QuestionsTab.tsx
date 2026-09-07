@@ -15,11 +15,13 @@ export function QuestionsTab({
   analyse,
   expectedQuestionCount,
   isStreaming,
+  generationId,
 }: {
   questions: Question[];
   analyse: Analyse | null;
   expectedQuestionCount: number;
   isStreaming: boolean;
+  generationId: string | null;
 }) {
   const [mastered, setMastered] = useState<Set<number>>(new Set());
   const [answers, setAnswers] = useState<Record<number, AnswerState>>({});
@@ -66,6 +68,7 @@ export function QuestionsTab({
             categorie: question.categorie,
             answer: answerText,
             jobContext: analyse,
+            ...(generationId ? { generationId } : {}),
           }),
           signal: controller.signal,
         });

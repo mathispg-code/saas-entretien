@@ -12,6 +12,7 @@ import {
   hasUsedFreeTrial,
   markFreeTrialUsed,
 } from "../lib/free-trial";
+import { getStoredGenerationId, storeGenerationId } from "../lib/generation-id";
 import { AnalyseCard } from "./components/AnalyseCard";
 import { ResultsActionBar } from "./components/ResultsActionBar";
 import { ResultsTabs } from "./components/ResultsTabs";
@@ -58,6 +59,10 @@ export default function GenerateurPage() {
   const [analyse, setAnalyse] = useState<Analyse | null>(null);
   const [cvVigilance, setCvVigilance] = useState<CvVigilancePoint[] | null>(null);
   const [questionsAPoser, setQuestionsAPoser] = useState<QuestionAPoser[] | null>(null);
+  // Id de la generation en cours/la plus recente (table Supabase
+  // "generations") — voir app/lib/generation-id.ts. Servira a l'etape 3 pour
+  // verifier le statut de paiement.
+  const [generationId, setGenerationId] = useState<string | null>(null);
   // Incremente a chaque generation reussie : utilise comme key sur ResultsTabs
   // pour forcer un remontage propre (onglet actif, cartes maitrisees, reponses
   // en cours redemarrent a zero sur un nouveau resultat).
@@ -71,6 +76,7 @@ export default function GenerateurPage() {
 
   useEffect(() => {
     setTrialUsed(hasUsedFreeTrial());
+    setGenerationId(getStoredGenerationId());
   }, []);
 
   useEffect(() => {
@@ -93,6 +99,7 @@ export default function GenerateurPage() {
     setAnalyse(null);
     setCvVigilance(null);
     setQuestionsAPoser(null);
+    setGenerationId(null);
 
     // Garde-fou : le bouton est désactivé dans ce cas, mais on protège aussi
     // l'appel API directement. Voir app/lib/free-trial.ts.
@@ -178,7 +185,7 @@ export default function GenerateurPage() {
             continue;
           }
 
-          let event: { type: string; data?: unknown; message?: string };
+          let event: { type: string; data?: unknown; message?: string; id?: string };
           try {
             event = JSON.parse(line);
           } catch {
@@ -188,6 +195,12 @@ export default function GenerateurPage() {
           }
 
           switch (event.type) {
+            case "generationId":
+              if (typeof event.id === "string") {
+                setGenerationId(event.id);
+                storeGenerationId(event.id);
+              }
+              break;
             case "analyse":
               setAnalyse(event.data as Analyse);
               break;
@@ -556,6 +569,7 @@ export default function GenerateurPage() {
             questionsAPoser={questionsAPoser}
             expectedQuestionCount={questionCount}
             isStreaming={loading}
+            generationId={generationId}
           />
         </main>
       )}

@@ -15,6 +15,7 @@ export function ResultsTabs({
   questionsAPoser,
   expectedQuestionCount,
   isStreaming,
+  generationId,
 }: {
   questions: Question[];
   analyse: Analyse | null;
@@ -22,6 +23,7 @@ export function ResultsTabs({
   questionsAPoser: QuestionAPoser[] | null;
   expectedQuestionCount: number;
   isStreaming: boolean;
+  generationId: string | null;
 }) {
   const hasCvTab = Boolean(cvVigilance && cvVigilance.length > 0);
   const hasAPoserTab = Boolean(questionsAPoser && questionsAPoser.length > 0);
@@ -61,6 +63,7 @@ export function ResultsTabs({
           analyse={analyse}
           expectedQuestionCount={expectedQuestionCount}
           isStreaming={isStreaming}
+          generationId={generationId}
         />
       )}
       {activeTab === "cv" && hasCvTab && <CvVigilanceTab points={cvVigilance!} />}

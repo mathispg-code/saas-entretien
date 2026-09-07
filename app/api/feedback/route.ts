@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 
 const MAX_QUESTION_LENGTH = 1000;
 const MAX_ANSWER_LENGTH = 2000;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const FEEDBACK_CATEGORIES = [
   "technique",
@@ -95,6 +96,8 @@ export async function POST(request: Request) {
     categorie?: string;
     answer?: string;
     jobContext?: JobContext;
+    // Reserve pour l'etape 3 (verification du paiement) : pas encore utilise.
+    generationId?: string;
   };
   try {
     body = await request.json();
@@ -103,6 +106,10 @@ export async function POST(request: Request) {
   }
 
   const { question, categorie, answer, jobContext } = body;
+
+  if (body.generationId !== undefined && !UUID_REGEX.test(body.generationId)) {
+    return json({ error: "Identifiant de génération invalide." }, 400, origin);
+  }
 
   if (!question?.trim() || !answer?.trim()) {
     return json(

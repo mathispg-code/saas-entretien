@@ -4,6 +4,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { Allow as PartialJsonAllow, parse as partialParseJson } from "partial-json";
 import { z } from "zod";
 import { corsHeaders, GENERIC_ERROR_MESSAGE, optionsResponse } from "../../lib/api-response";
+import { insertGeneration } from "../../lib/supabase";
 
 export const runtime = "nodejs";
 // La generation est streamee (voir plus bas) pour eviter d'attendre la fin
@@ -143,6 +144,7 @@ Réponds en français.`;
 }
 
 type StreamEvent =
+  | { type: "generationId"; id: string }
   | { type: "analyse"; data: z.infer<typeof AnalyseSchema> }
   | { type: "question"; data: z.infer<typeof QuestionSchema> }
   | { type: "vigilance"; data: z.infer<typeof VigilancePointSchema> }
@@ -333,6 +335,14 @@ export async function POST(request: Request) {
   const hasCv = Boolean(cvBase64);
 
   return ndjsonResponse(origin, 200, async (send) => {
+    // Trace cette generation (gratuite ou non) avant meme de lancer l'appel
+    // Anthropic, pour qu'une ligne existe meme si la generation echoue
+    // ensuite. Ne bloque jamais : en cas d'echec, on continue sans id.
+    const generationId = await insertGeneration();
+    if (generationId) {
+      send({ type: "generationId", id: generationId });
+    }
+
     let emittedAnalyse = false;
     let emittedQuestions = 0;
     let emittedVigilance = 0;
