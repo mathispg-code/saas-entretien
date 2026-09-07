@@ -25,3 +25,12 @@ export function storeGenerationId(id: string): void {
     // Stockage indisponible (navigation privée, quotas...) : on ignore.
   }
 }
+
+export function clearStoredGenerationId(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Stockage indisponible : on ignore.
+  }
+}

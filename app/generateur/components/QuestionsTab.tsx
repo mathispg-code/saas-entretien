@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CheckIcon, SpinnerIcon } from "../../components/icons";
 import { QuestionCard } from "./QuestionCard";
+import { UnlockBanner } from "./UnlockBanner";
 import {
   DEFAULT_ANSWER_STATE,
   FEEDBACK_TIMEOUT_MS,
@@ -16,12 +17,14 @@ export function QuestionsTab({
   expectedQuestionCount,
   isStreaming,
   generationId,
+  paid,
 }: {
   questions: Question[];
   analyse: Analyse | null;
   expectedQuestionCount: number;
   isStreaming: boolean;
   generationId: string | null;
+  paid: boolean;
 }) {
   const [mastered, setMastered] = useState<Set<number>>(new Set());
   const [answers, setAnswers] = useState<Record<number, AnswerState>>({});
@@ -46,6 +49,11 @@ export function QuestionsTab({
   }
 
   async function handleFeedback(index: number, question: Question) {
+    // Garde-fou : l'UI empêche déjà cet appel tant que paid est false (voir
+    // le rendu de QuestionCard ci-dessous), on protège aussi la fonction.
+    if (!paid) {
+      return;
+    }
     const state = answers[index] ?? DEFAULT_ANSWER_STATE;
     const answerText = state.text.trim();
     if (!answerText || state.loading) {
@@ -129,6 +137,16 @@ export function QuestionsTab({
           {mastered.size}/{questions.length} questions maîtrisées
         </span>
       </div>
+
+      {!paid && !isStreaming && (
+        <div className="mb-6">
+          <UnlockBanner
+            generationId={generationId}
+            description="Réponds à chaque question et reçois un feedback personnalisé de l'IA sur tes réponses."
+          />
+        </div>
+      )}
+
       <div className="space-y-4">
         {questions.map((q, i) => (
           <QuestionCard
@@ -141,6 +159,7 @@ export function QuestionsTab({
             onShowAnswerBox={() => updateAnswer(i, { showBox: true })}
             onAnswerChange={(text) => updateAnswer(i, { text })}
             onSubmitFeedback={() => handleFeedback(i, q)}
+            locked={!paid}
           />
         ))}
       </div>

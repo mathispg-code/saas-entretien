@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Download, Share2 } from "lucide-react";
 import { SpinnerIcon } from "../../components/icons";
 import { downloadInterviewPdf } from "../lib/generatePdf";
+import { UnlockBanner } from "./UnlockBanner";
 import type { Analyse, Question, QuestionAPoser } from "../types";
 
 const SHARE_TEXT =
@@ -15,11 +16,15 @@ export function ResultsActionBar({
   questionsAPoser,
   analyse,
   disabled = false,
+  generationId,
+  paid,
 }: {
   questions: Question[];
   questionsAPoser: QuestionAPoser[] | null;
   analyse: Analyse | null;
   disabled?: boolean;
+  generationId: string | null;
+  paid: boolean;
 }) {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfError, setPdfError] = useState(false);
@@ -62,20 +67,24 @@ export function ResultsActionBar({
 
   return (
     <div className="mb-6 flex flex-wrap items-center justify-end gap-2">
-      <button
-        type="button"
-        onClick={handleExportPdf}
-        disabled={pdfLoading || disabled}
-        title={disabled ? "Disponible une fois la génération terminée" : undefined}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-navy-700 shadow-sm transition hover:border-emerald-300 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {pdfLoading ? (
-          <SpinnerIcon className="h-4 w-4" />
-        ) : (
-          <Download className="h-4 w-4" />
-        )}
-        {pdfLoading ? "Génération du PDF…" : "Exporter en PDF"}
-      </button>
+      {!disabled && !paid ? (
+        <UnlockBanner generationId={generationId} compact />
+      ) : (
+        <button
+          type="button"
+          onClick={handleExportPdf}
+          disabled={pdfLoading || disabled}
+          title={disabled ? "Disponible une fois la génération terminée" : undefined}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-navy-700 shadow-sm transition hover:border-emerald-300 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {pdfLoading ? (
+            <SpinnerIcon className="h-4 w-4" />
+          ) : (
+            <Download className="h-4 w-4" />
+          )}
+          {pdfLoading ? "Génération du PDF…" : "Exporter en PDF"}
+        </button>
+      )}
       <button
         type="button"
         onClick={handleShare}

@@ -4,7 +4,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { Allow as PartialJsonAllow, parse as partialParseJson } from "partial-json";
 import { z } from "zod";
 import { corsHeaders, GENERIC_ERROR_MESSAGE, optionsResponse } from "../../lib/api-response";
-import { insertGeneration } from "../../lib/supabase";
+import { insertGeneration, saveGenerationResult } from "../../lib/supabase";
 
 export const runtime = "nodejs";
 // La generation est streamee (voir plus bas) pour eviter d'attendre la fin
@@ -466,6 +466,18 @@ export async function POST(request: Request) {
       }
       for (let i = emittedAPoser; i < output.questionsAPoser.length; i++) {
         send({ type: "aPoser", data: output.questionsAPoser[i] });
+      }
+
+      // Persiste le resultat complet pour pouvoir le reafficher plus tard
+      // (F5, retour de paiement Stripe) sans tout regenerer. Best-effort :
+      // ne bloque jamais l'evenement "done" si Supabase est indisponible.
+      if (generationId) {
+        await saveGenerationResult(generationId, {
+          analyse: output.analyse,
+          questions: output.questions,
+          questionsAPoser: output.questionsAPoser,
+          cvVigilance: output.pointsVigilanceCv ?? null,
+        });
       }
 
       send({ type: "done" });

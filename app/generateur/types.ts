@@ -35,6 +35,16 @@ export type CvVigilancePoint = {
   conseil: string;
 };
 
+// Snapshot complet d'une generation, persiste en base (colonne "result" de
+// la table Supabase "generations") pour pouvoir la reafficher apres un F5
+// ou un retour de paiement Stripe, sans tout regenerer.
+export type GenerationResult = {
+  analyse: Analyse;
+  questions: Question[];
+  questionsAPoser: QuestionAPoser[];
+  cvVigilance: CvVigilancePoint[] | null;
+};
+
 export type FeedbackResult = {
   pointsForts: string[];
   pointsAAmeliorer: string[];

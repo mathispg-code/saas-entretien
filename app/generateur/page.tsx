@@ -12,12 +12,16 @@ import {
   hasUsedFreeTrial,
   markFreeTrialUsed,
 } from "../lib/free-trial";
-import { getStoredGenerationId, storeGenerationId } from "../lib/generation-id";
+import {
+  clearStoredGenerationId,
+  getStoredGenerationId,
+  storeGenerationId,
+} from "../lib/generation-id";
 import { AnalyseCard } from "./components/AnalyseCard";
 import { ResultsActionBar } from "./components/ResultsActionBar";
 import { ResultsTabs } from "./components/ResultsTabs";
 import { GENERIC_ERROR_MESSAGE } from "./types";
-import type { Analyse, CvVigilancePoint, Question, QuestionAPoser } from "./types";
+import type { Analyse, CvVigilancePoint, GenerationResult, Question, QuestionAPoser } from "./types";
 
 type Mode = "text" | "pdf";
 
@@ -63,6 +67,10 @@ export default function GenerateurPage() {
   // "generations") — voir app/lib/generation-id.ts. Servira a l'etape 3 pour
   // verifier le statut de paiement.
   const [generationId, setGenerationId] = useState<string | null>(null);
+  // Statut de paiement de la generation en cours — voir app/api/checkout et
+  // app/api/webhooks/stripe. Verrouille feedback/analyse CV/export PDF tant
+  // que false.
+  const [paid, setPaid] = useState(false);
   // Incremente a chaque generation reussie : utilise comme key sur ResultsTabs
   // pour forcer un remontage propre (onglet actif, cartes maitrisees, reponses
   // en cours redemarrent a zero sur un nouveau resultat).
@@ -76,7 +84,62 @@ export default function GenerateurPage() {
 
   useEffect(() => {
     setTrialUsed(hasUsedFreeTrial());
-    setGenerationId(getStoredGenerationId());
+
+    const storedId = getStoredGenerationId();
+    if (!storedId) {
+      return;
+    }
+    setGenerationId(storedId);
+
+    // Retour de Stripe Checkout : le webhook qui met a jour le statut de
+    // paiement peut arriver avec un leger decalage par rapport a la
+    // redirection du navigateur, on retente donc quelques fois avant
+    // d'abandonner. Dans les autres cas (chargement normal de la page), un
+    // seul essai suffit.
+    const checkoutStatus = new URLSearchParams(window.location.search).get("checkout");
+    const maxAttempts = checkoutStatus === "success" ? 5 : 1;
+
+    async function hydrateFromStoredGeneration() {
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        let res: Response;
+        try {
+          res = await fetch(`/api/generation-status?id=${storedId}`);
+        } catch {
+          return;
+        }
+
+        if (res.status === 404 || res.status === 400) {
+          clearStoredGenerationId();
+          setGenerationId(null);
+          return;
+        }
+        if (!res.ok) {
+          return;
+        }
+
+        const data: { paid: boolean; result: GenerationResult | null } = await res.json();
+        if (data.result) {
+          setAnalyse(data.result.analyse);
+          setQuestions(data.result.questions);
+          setCvVigilance(data.result.cvVigilance);
+          setQuestionsAPoser(data.result.questionsAPoser);
+        }
+        setPaid(data.paid);
+
+        if (data.paid || attempt === maxAttempts - 1) {
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+    }
+
+    hydrateFromStoredGeneration();
+
+    if (checkoutStatus) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("checkout");
+      window.history.replaceState({}, "", url.pathname + url.search);
+    }
   }, []);
 
   useEffect(() => {
@@ -100,6 +163,7 @@ export default function GenerateurPage() {
     setCvVigilance(null);
     setQuestionsAPoser(null);
     setGenerationId(null);
+    setPaid(false);
 
     // Garde-fou : le bouton est désactivé dans ce cas, mais on protège aussi
     // l'appel API directement. Voir app/lib/free-trial.ts.
@@ -557,6 +621,8 @@ export default function GenerateurPage() {
             questionsAPoser={questionsAPoser}
             analyse={analyse}
             disabled={loading}
+            generationId={generationId}
+            paid={paid}
           />
 
           {analyse && <AnalyseCard analyse={analyse} />}
@@ -570,6 +636,7 @@ export default function GenerateurPage() {
             expectedQuestionCount={questionCount}
             isStreaming={loading}
             generationId={generationId}
+            paid={paid}
           />
         </main>
       )}

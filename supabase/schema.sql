@@ -21,3 +21,8 @@ alter table generations enable row level security;
 -- prend un "permission denied for table" malgre le bypass RLS (comportement
 -- rencontre sur ce projet, meme avec la nouvelle cle secrete sb_secret_...).
 grant select, insert, update on public.generations to service_role;
+
+-- Etape 3 (paiement) : stocke le resultat complet de la generation (analyse,
+-- questions, CV, questions a poser) pour pouvoir le reafficher apres un
+-- retour de Stripe Checkout (ou un simple F5) sans tout perdre.
+alter table generations add column result jsonb;

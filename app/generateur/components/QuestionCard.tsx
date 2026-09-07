@@ -1,4 +1,4 @@
-import { AlertCircle, Compass, MessageSquare, Sparkles, Target } from "lucide-react";
+import { AlertCircle, Compass, Lock, MessageSquare, Sparkles, Target } from "lucide-react";
 import { CheckIcon, LightbulbIcon, SpinnerIcon } from "../../components/icons";
 import { ConseilRow, FeedbackList } from "./shared";
 import { CATEGORY_LABELS, CATEGORY_STYLES, MAX_ANSWER_LENGTH } from "../types";
@@ -13,6 +13,7 @@ export function QuestionCard({
   onShowAnswerBox,
   onAnswerChange,
   onSubmitFeedback,
+  locked,
 }: {
   index: number;
   question: Question;
@@ -22,6 +23,7 @@ export function QuestionCard({
   onShowAnswerBox: () => void;
   onAnswerChange: (text: string) => void;
   onSubmitFeedback: () => void;
+  locked: boolean;
 }) {
   return (
     <div
@@ -60,7 +62,15 @@ export function QuestionCard({
       </div>
 
       <div className="ml-11 mt-3 sm:ml-[52px]">
-        {!answerState.showBox ? (
+        {locked ? (
+          <div
+            title="Débloque l'accès complet pour répondre et recevoir un feedback"
+            className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-400"
+          >
+            <Lock className="h-3.5 w-3.5" />
+            Feedback verrouillé
+          </div>
+        ) : !answerState.showBox ? (
           <button
             type="button"
             onClick={onShowAnswerBox}
