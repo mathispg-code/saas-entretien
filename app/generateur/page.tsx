@@ -1,11 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Lock } from "lucide-react";
+import { Lock, X } from "lucide-react";
 import { SiteHeader } from "../components/SiteHeader";
 import { SiteFooter } from "../components/SiteFooter";
 import { SideDecoration } from "../components/SideDecoration";
-import { ClockIcon, DocumentIcon, SpinnerIcon, UserIcon, ZapIcon } from "../components/icons";
+import {
+  CheckIcon,
+  ClockIcon,
+  DocumentIcon,
+  SpinnerIcon,
+  UserIcon,
+  ZapIcon,
+} from "../components/icons";
 import {
   FREE_TRIAL_LOCKED_MESSAGE,
   FREE_TRIAL_QUESTION_COUNT,
@@ -18,12 +25,6 @@ import {
   storeGenerationId,
 } from "../lib/generation-id";
 import { hasSeenUnlockModal, markUnlockModalSeen } from "../lib/unlock-modal-seen";
-import {
-  hasEverPaid as getHasEverPaid,
-  markHasEverPaid,
-  getPaidGenerationId,
-  setPaidGenerationId,
-} from "../lib/paid-history";
 import { AnalyseCard } from "./components/AnalyseCard";
 import { ResultsActionBar } from "./components/ResultsActionBar";
 import { ResultsTabs } from "./components/ResultsTabs";
@@ -88,18 +89,16 @@ export default function GenerateurPage() {
   // app/api/webhooks/stripe. Verrouille feedback/analyse CV/export PDF tant
   // que false.
   const [paid, setPaid] = useState(false);
+  // Bandeau de confirmation affiche une seule fois au retour reussi de
+  // Stripe Checkout (voir hydrateFromStoredGeneration) — jamais au simple
+  // rechargement d'une generation deja payee.
+  const [showPaymentConfirmation, setShowPaymentConfirmation] = useState(false);
   // Incremente a chaque generation reussie : utilise comme key sur ResultsTabs
   // pour forcer un remontage propre (onglet actif, cartes maitrisees, reponses
   // en cours redemarrent a zero sur un nouveau resultat).
   const [resultId, setResultId] = useState(0);
   // Limitation temporaire "un essai gratuit par appareil" — voir app/lib/free-trial.ts
   const [trialUsed, setTrialUsed] = useState(false);
-  // Vrai des que cet appareil a paye au moins une fois (n'importe quelle
-  // generation) — voir app/lib/paid-history.ts. Leve le blocage "un essai
-  // gratuit par appareil" et debloque les options 8/12 questions pour les
-  // generations suivantes ; ne rend jamais gratuit le feedback/l'analyse
-  // CV/le PDF d'une nouvelle generation, qui restent payants individuellement.
-  const [hasEverPaidState, setHasEverPaidState] = useState(false);
   // Popup de conversion vers le pack payant (voir UnlockModal). isAutoPopup
   // change uniquement le libelle du bouton secondaire ("Plus tard" au clic
   // sur un element verrouille, message plus specifique pour la popup
@@ -113,7 +112,6 @@ export default function GenerateurPage() {
 
   useEffect(() => {
     setTrialUsed(hasUsedFreeTrial());
-    setHasEverPaidState(getHasEverPaid());
 
     const storedId = getStoredGenerationId();
     if (!storedId) {
@@ -163,15 +161,11 @@ export default function GenerateurPage() {
           setHasCv(data.result.hasCv);
         }
         setPaid(data.paid);
-        if (data.paid) {
-          markHasEverPaid();
-          setHasEverPaidState(true);
-          // Preuve de paiement revalidee cote serveur (voir
-          // app/api/generate/route.ts) : hasEverPaid seul est un flag client
-          // falsifiable, ce id sert a demontrer un paiement reel.
-          if (storedId) {
-            setPaidGenerationId(storedId);
-          }
+        // Confirmation affichee une fois, seulement au retour reel de Stripe
+        // (pas a chaque rechargement de page ulterieur ou data.paid est deja
+        // vrai) — voir le bandeau pres des resultats.
+        if (data.paid && checkoutStatus === "success") {
+          setShowPaymentConfirmation(true);
         }
 
         if (data.paid || attempt === maxAttempts - 1) {
@@ -203,25 +197,33 @@ export default function GenerateurPage() {
   const canSubmit =
     (mode === "text" && jobText.trim().length > 0) ||
     (mode === "pdf" && pdfFile !== null);
-  // Essai gratuit consomme et jamais paye sur cet appareil : bloque une
-  // nouvelle generation. Leve des que hasEverPaidState est vrai — voir
-  // app/lib/paid-history.ts.
-  const isLocked = trialUsed && !hasEverPaidState;
+  // Essai gratuit consomme et generation courante pas (encore) payee : bloque
+  // une nouvelle generation. Une seule regle partout : un paiement debloque
+  // une generation precise, point (voir app/api/generate/route.ts et
+  // app/api/checkout/route.ts) — jamais un flag "a vie" sur l'appareil.
+  const isLocked = trialUsed && !paid;
 
   async function handleGenerate() {
+    // Si la generation actuellement suivie est deja payee, on la reutilise :
+    // meme id, donc le paiement (feedback/CV/PDF, 8/12 questions) reste
+    // valable pour cette nouvelle generation — voir
+    // openUnlockModalForLockedForm et app/api/generate/route.ts.
+    const reusableGenerationId = paid ? generationId : null;
+
     setError(null);
     setQuestions(null);
     setAnalyse(null);
     setHasCv(false);
     setQuestionsAPoser(null);
-    setGenerationId(null);
-    setPaid(false);
+    setGenerationId(reusableGenerationId);
+    setPaid(Boolean(reusableGenerationId));
     setUnlockModalOpen(false);
+    setShowPaymentConfirmation(false);
 
     // Garde-fou : le bouton est désactivé dans ce cas, mais on protège aussi
-    // l'appel API directement. Voir app/lib/free-trial.ts. Leve des que
-    // l'appareil a deja paye une fois — voir app/lib/paid-history.ts.
-    if (trialUsed && !hasEverPaidState) {
+    // l'appel API directement. Voir app/lib/free-trial.ts. Une generation
+    // deja payee reste generable a nouveau (reusableGenerationId non nul).
+    if (trialUsed && !reusableGenerationId) {
       return;
     }
 
@@ -255,16 +257,14 @@ export default function GenerateurPage() {
         cvBase64?: string;
         cvFilename?: string;
         questionCount?: number;
-        paidGenerationId?: string;
+        generationId?: string;
       } = { questionCount };
 
-      // Preuve qu'un paiement reel a eu lieu sur cet appareil, requise cote
-      // serveur des que questionCount > 5 (voir app/api/generate/route.ts).
-      // hasEverPaidState seul ne suffit plus : c'est un flag localStorage
-      // falsifiable, ce id est revalide dans Supabase a chaque appel.
-      const paidGenerationId = getPaidGenerationId();
-      if (paidGenerationId) {
-        payload.paidGenerationId = paidGenerationId;
+      // Reutilise et revalide cote serveur une generation deja payee (voir
+      // app/api/generate/route.ts) — jamais un flag "a vie" sur l'appareil,
+      // uniquement cette generation precise.
+      if (reusableGenerationId) {
+        payload.generationId = reusableGenerationId;
       }
 
       if (mode === "text") {
@@ -335,6 +335,17 @@ export default function GenerateurPage() {
           switch (event.type) {
             case "generationId":
               if (typeof event.id === "string") {
+                // Le serveur ne reutilise reusableGenerationId que si la
+                // fiche de poste soumise correspond bien a celle deja
+                // associee a cette generation payee (voir
+                // app/api/generate/route.ts). Un id different renvoye ici
+                // signifie qu'il a plutot cree une nouvelle generation non
+                // payee : on corrige l'optimisme de paid=true pose au debut
+                // de handleGenerate, sinon l'UI resterait a tort deverrouillee
+                // (export PDF notamment, qui n'a aucun garde-fou serveur).
+                if (event.id !== reusableGenerationId) {
+                  setPaid(false);
+                }
                 capturedGenerationId = event.id;
                 setGenerationId(event.id);
                 storeGenerationId(event.id);
@@ -638,10 +649,10 @@ export default function GenerateurPage() {
               <div className="grid grid-cols-3 gap-2">
                 {QUESTION_COUNT_OPTIONS.map((count) => {
                   // Essai gratuit limité à 5 questions — voir app/lib/free-trial.ts.
-                  // Débloqué en entier dès que l'appareil a déjà payé une
-                  // fois — voir app/lib/paid-history.ts.
+                  // Débloqué dès que la génération en cours est payée (jamais
+                  // un flag "à vie" sur l'appareil) — voir isLocked plus haut.
                   const optionDisabled =
-                    !hasEverPaidState && (trialUsed || count !== FREE_TRIAL_QUESTION_COUNT);
+                    !paid && (trialUsed || count !== FREE_TRIAL_QUESTION_COUNT);
                   // "8"/"12" verrouillés uniquement à cause de l'essai déjà
                   // consommé (pas sur un appareil neuf, où c'est juste "à
                   // venir") ouvrent la modale de paiement au clic plutôt que
@@ -756,6 +767,25 @@ export default function GenerateurPage() {
 
       {questions !== null && (
         <main ref={resultsRef} className="mx-auto max-w-4xl scroll-mt-20 px-4 pb-16 pt-10">
+          {showPaymentConfirmation && (
+            <div className="mb-6 flex items-start gap-3 rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900">
+              <CheckIcon className="mt-0.5 h-5 w-5 flex-none text-emerald-600" />
+              <p className="flex-1">
+                Paiement confirmé — le feedback IA, l&apos;analyse de CV et l&apos;export PDF sont
+                débloqués pour cette fiche de poste. Une nouvelle fiche de poste nécessitera un
+                nouveau paiement de 3,99&nbsp;€.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowPaymentConfirmation(false)}
+                aria-label="Fermer"
+                className="flex-none text-emerald-700 transition hover:text-emerald-900"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
           <ResultsActionBar
             questions={questions}
             questionsAPoser={questionsAPoser}

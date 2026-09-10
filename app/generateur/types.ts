@@ -43,6 +43,11 @@ export type GenerationResult = {
   questions: Question[];
   questionsAPoser: QuestionAPoser[];
   cvVigilance: CvVigilancePoint[] | null;
+  // Empreinte de la fiche de poste source (texte ou PDF), pour verifier
+  // qu'une reutilisation de generation payee porte bien sur la meme fiche de
+  // poste — voir app/api/generate/route.ts. Absent sur les lignes creees
+  // avant l'ajout de ce champ.
+  sourceHash?: string;
 };
 
 export type FeedbackResult = {

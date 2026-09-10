@@ -6,7 +6,7 @@ import { SpinnerIcon } from "../../components/icons";
 import { startCheckout } from "../lib/checkout";
 import { GENERIC_ERROR_MESSAGE } from "../types";
 
-const UNLOCK_LABEL = "Débloquer l'accès complet pour cet entretien";
+const UNLOCK_LABEL = "Débloquer l'accès complet pour cette fiche de poste";
 
 /**
  * Bandeau de deverrouillage affiche a la place des fonctionnalites payantes
@@ -60,7 +60,7 @@ export function UnlockBanner({
           className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 shadow-sm transition hover:border-emerald-400 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading ? <SpinnerIcon className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-          {UNLOCK_LABEL}
+          {loading ? "Redirection…" : `${UNLOCK_LABEL} — 3,99 €`}
         </button>
         {error && <p className="text-xs text-rose-500">{error}</p>}
       </div>

@@ -150,8 +150,9 @@ export function UnlockModal({
             ))}
           </div>
 
-          <p className="mt-6 text-center text-xs text-slate-400">
-            3,99 € — paiement unique.
+          <p className="mt-6 text-center text-sm text-slate-200">
+            <span className="font-semibold text-white">3,99 € par fiche de poste</span> — paiement
+            unique. Une nouvelle fiche de poste nécessitera un nouveau paiement.
           </p>
 
           <button
@@ -161,7 +162,7 @@ export function UnlockModal({
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3.5 text-sm font-semibold text-navy-950 shadow-[0_0_35px_-8px_rgba(16,185,129,0.7)] transition hover:scale-[1.015] hover:bg-emerald-400 hover:shadow-[0_0_45px_-6px_rgba(16,185,129,0.85)] active:scale-[0.99] disabled:cursor-not-allowed disabled:scale-100 disabled:bg-white/10 disabled:text-slate-500 disabled:shadow-none"
           >
             {loading ? <SpinnerIcon className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-            {loading ? "Redirection…" : "Débloquer l'accès complet"}
+            {loading ? "Redirection…" : "Débloquer cette fiche de poste — 3,99 €"}
           </button>
 
           {error && (

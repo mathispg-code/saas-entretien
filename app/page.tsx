@@ -31,7 +31,7 @@ const ADVANTAGES = [
   {
     icon: Gift,
     title: "0€ pour commencer",
-    text: "Ta première génération est gratuite, sans carte bancaire ni compte à créer.",
+    text: "Ta première génération est gratuite, sans carte bancaire ni compte à créer. Ensuite, 3,99 € par fiche de poste pour débloquer feedback IA, analyse de CV et export PDF.",
   },
 ];
 

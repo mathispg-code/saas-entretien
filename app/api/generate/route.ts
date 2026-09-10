@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { Allow as PartialJsonAllow, parse as partialParseJson } from "partial-json";
@@ -41,6 +41,14 @@ function isPdfSignature(base64: string): boolean {
   // en entier juste pour cette verification.
   const prefix = Buffer.from(base64.slice(0, 12), "base64");
   return prefix.length >= 5 && prefix.subarray(0, 5).toString("latin1") === "%PDF-";
+}
+
+// Empreinte de la fiche de poste source, pour verifier qu'une reutilisation
+// de generation payee (voir plus bas) porte bien sur la meme fiche de poste
+// et pas sur un contenu different colle apres coup — voir GenerationResult.
+function computeInputHash(text: string | undefined, pdfBase64: string | undefined): string {
+  const normalized = pdfBase64 ?? text?.trim() ?? "";
+  return createHash("sha256").update(normalized).digest("hex");
 }
 
 export async function OPTIONS(request: Request) {
@@ -233,7 +241,7 @@ export async function POST(request: Request) {
     cvBase64?: string;
     cvFilename?: string;
     questionCount?: number;
-    paidGenerationId?: string;
+    generationId?: string;
   };
   try {
     body = await request.json();
@@ -241,7 +249,13 @@ export async function POST(request: Request) {
     return errorStream("Corps de requête invalide.", 400, origin);
   }
 
-  const { text, pdfBase64, cvBase64, questionCount = DEFAULT_QUESTIONS, paidGenerationId } = body;
+  const {
+    text,
+    pdfBase64,
+    cvBase64,
+    questionCount = DEFAULT_QUESTIONS,
+    generationId: requestedGenerationId,
+  } = body;
 
   if (!text?.trim() && !pdfBase64) {
     return errorStream("Merci de coller le texte de la fiche de poste ou d'importer un PDF.", 400, origin);
@@ -263,27 +277,41 @@ export async function POST(request: Request) {
     );
   }
 
-  // 8/12 questions ne sont pas un droit par generation mais un deblocage au
-  // niveau de l'appareil (une fois paye, toujours debloque) — voir
-  // app/lib/paid-history.ts. Le flag hasEverPaid cote client est falsifiable
-  // (localStorage) : on exige donc la preuve d'un paiement reel, revalidee
-  // ici dans Supabase, avant d'accepter plus de 5 questions.
-  if (questionCount > FREE_TRIAL_QUESTION_COUNT && !isPaywallBypassed()) {
-    if (!paidGenerationId || !UUID_REGEX.test(paidGenerationId)) {
-      return errorStream(PAYMENT_REQUIRED_MESSAGE, 402, origin);
-    }
-
-    let paidGeneration;
+  // Une seule regle partout : un paiement debloque une generation precise,
+  // point (jamais un flag "a vie" sur l'appareil — voir
+  // app/generateur/page.tsx). Si le client fournit l'id d'une generation
+  // deja payee ET que la fiche de poste soumise est la meme que celle deja
+  // associee a cette generation (meme empreinte, ou generation pas encore
+  // remplie), on la reutilise — regenerer la meme fiche de poste, ou obtenir
+  // 8/12 questions dessus. Une fiche de poste differente, meme avec un id
+  // paye en main, ne doit jamais heriter d'un paiement fait pour une autre
+  // fiche de poste : on cree alors une nouvelle generation non payee.
+  const currentInputHash = computeInputHash(text, pdfBase64);
+  let reusableGenerationId: string | null = null;
+  if (requestedGenerationId && UUID_REGEX.test(requestedGenerationId)) {
+    let existingGeneration;
     try {
-      paidGeneration = await getGeneration(paidGenerationId);
+      existingGeneration = await getGeneration(requestedGenerationId);
     } catch (error) {
       console.error("Erreur lors de la vérification du paiement avant génération:", error);
       return errorStream(GENERIC_ERROR_MESSAGE, 500, origin);
     }
-
-    if (!paidGeneration || !paidGeneration.paid) {
-      return errorStream(PAYMENT_REQUIRED_MESSAGE, 402, origin);
+    // !result : generation payee mais jamais encore remplie (le flow
+    // "verrouille -> payer -> generer" cree d'abord une ligne vide via
+    // /api/generation-placeholder) — rien a comparer, la reutilisation est
+    // legitime quel que soit le contenu soumis. Des qu'un resultat existe
+    // deja, en revanche, il faut la meme empreinte pour reutiliser : une
+    // ligne payee sans sourceHash (generee avant l'ajout de ce champ) ne
+    // doit plus jamais etre consideree comme reutilisable par defaut.
+    const sameJobPosting =
+      !existingGeneration?.result || existingGeneration.result.sourceHash === currentInputHash;
+    if (existingGeneration?.paid && sameJobPosting) {
+      reusableGenerationId = requestedGenerationId;
     }
+  }
+
+  if (questionCount > FREE_TRIAL_QUESTION_COUNT && !isPaywallBypassed() && !reusableGenerationId) {
+    return errorStream(PAYMENT_REQUIRED_MESSAGE, 402, origin);
   }
 
   if (pdfBase64 && base64ByteLength(pdfBase64) > MAX_FILE_SIZE_BYTES) {
@@ -364,10 +392,12 @@ export async function POST(request: Request) {
   const hasCv = Boolean(cvBase64);
 
   return ndjsonResponse(origin, 200, async (send) => {
-    // Trace cette generation (gratuite ou non) avant meme de lancer l'appel
-    // Anthropic, pour qu'une ligne existe meme si la generation echoue
-    // ensuite. Ne bloque jamais : en cas d'echec, on continue sans id.
-    const generationId = await insertGeneration();
+    // Reutilise la generation deja payee fournie par le client (voir plus
+    // haut), sinon trace une nouvelle generation (gratuite ou non) avant
+    // meme de lancer l'appel Anthropic, pour qu'une ligne existe meme si la
+    // generation echoue ensuite. Ne bloque jamais : en cas d'echec, on
+    // continue sans id.
+    const generationId = reusableGenerationId ?? (await insertGeneration());
     if (generationId) {
       send({ type: "generationId", id: generationId });
     }
@@ -497,6 +527,7 @@ export async function POST(request: Request) {
           questions: output.questions,
           questionsAPoser: output.questionsAPoser,
           cvVigilance: output.pointsVigilanceCv ?? null,
+          sourceHash: currentInputHash,
         });
       }
 
