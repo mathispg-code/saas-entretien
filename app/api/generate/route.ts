@@ -3,8 +3,10 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { Allow as PartialJsonAllow, parse as partialParseJson } from "partial-json";
 import { z } from "zod";
-import { corsHeaders, GENERIC_ERROR_MESSAGE, optionsResponse } from "../../lib/api-response";
-import { insertGeneration, saveGenerationResult } from "../../lib/supabase";
+import { corsHeaders, GENERIC_ERROR_MESSAGE, PAYMENT_REQUIRED_MESSAGE, optionsResponse } from "../../lib/api-response";
+import { isPaywallBypassed } from "../../lib/dev-bypass";
+import { FREE_TRIAL_QUESTION_COUNT } from "../../lib/free-trial";
+import { getGeneration, insertGeneration, saveGenerationResult } from "../../lib/supabase";
 
 export const runtime = "nodejs";
 // La generation est streamee (voir plus bas) pour eviter d'attendre la fin
@@ -27,6 +29,7 @@ const QUESTION_COUNT_OPTIONS = [5, 8, 12] as const;
 const DEFAULT_QUESTIONS = 8;
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_TEXT_LENGTH = 20_000;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function base64ByteLength(base64: string): number {
   return Math.ceil((base64.length * 3) / 4);
@@ -230,6 +233,7 @@ export async function POST(request: Request) {
     cvBase64?: string;
     cvFilename?: string;
     questionCount?: number;
+    paidGenerationId?: string;
   };
   try {
     body = await request.json();
@@ -237,7 +241,7 @@ export async function POST(request: Request) {
     return errorStream("Corps de requête invalide.", 400, origin);
   }
 
-  const { text, pdfBase64, cvBase64, questionCount = DEFAULT_QUESTIONS } = body;
+  const { text, pdfBase64, cvBase64, questionCount = DEFAULT_QUESTIONS, paidGenerationId } = body;
 
   if (!text?.trim() && !pdfBase64) {
     return errorStream("Merci de coller le texte de la fiche de poste ou d'importer un PDF.", 400, origin);
@@ -257,6 +261,29 @@ export async function POST(request: Request) {
       400,
       origin,
     );
+  }
+
+  // 8/12 questions ne sont pas un droit par generation mais un deblocage au
+  // niveau de l'appareil (une fois paye, toujours debloque) — voir
+  // app/lib/paid-history.ts. Le flag hasEverPaid cote client est falsifiable
+  // (localStorage) : on exige donc la preuve d'un paiement reel, revalidee
+  // ici dans Supabase, avant d'accepter plus de 5 questions.
+  if (questionCount > FREE_TRIAL_QUESTION_COUNT && !isPaywallBypassed()) {
+    if (!paidGenerationId || !UUID_REGEX.test(paidGenerationId)) {
+      return errorStream(PAYMENT_REQUIRED_MESSAGE, 402, origin);
+    }
+
+    let paidGeneration;
+    try {
+      paidGeneration = await getGeneration(paidGenerationId);
+    } catch (error) {
+      console.error("Erreur lors de la vérification du paiement avant génération:", error);
+      return errorStream(GENERIC_ERROR_MESSAGE, 500, origin);
+    }
+
+    if (!paidGeneration || !paidGeneration.paid) {
+      return errorStream(PAYMENT_REQUIRED_MESSAGE, 402, origin);
+    }
   }
 
   if (pdfBase64 && base64ByteLength(pdfBase64) > MAX_FILE_SIZE_BYTES) {

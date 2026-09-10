@@ -18,7 +18,12 @@ import {
   storeGenerationId,
 } from "../lib/generation-id";
 import { hasSeenUnlockModal, markUnlockModalSeen } from "../lib/unlock-modal-seen";
-import { hasEverPaid as getHasEverPaid, markHasEverPaid } from "../lib/paid-history";
+import {
+  hasEverPaid as getHasEverPaid,
+  markHasEverPaid,
+  getPaidGenerationId,
+  setPaidGenerationId,
+} from "../lib/paid-history";
 import { AnalyseCard } from "./components/AnalyseCard";
 import { ResultsActionBar } from "./components/ResultsActionBar";
 import { ResultsTabs } from "./components/ResultsTabs";
@@ -161,6 +166,12 @@ export default function GenerateurPage() {
         if (data.paid) {
           markHasEverPaid();
           setHasEverPaidState(true);
+          // Preuve de paiement revalidee cote serveur (voir
+          // app/api/generate/route.ts) : hasEverPaid seul est un flag client
+          // falsifiable, ce id sert a demontrer un paiement reel.
+          if (storedId) {
+            setPaidGenerationId(storedId);
+          }
         }
 
         if (data.paid || attempt === maxAttempts - 1) {
@@ -244,7 +255,17 @@ export default function GenerateurPage() {
         cvBase64?: string;
         cvFilename?: string;
         questionCount?: number;
+        paidGenerationId?: string;
       } = { questionCount };
+
+      // Preuve qu'un paiement reel a eu lieu sur cet appareil, requise cote
+      // serveur des que questionCount > 5 (voir app/api/generate/route.ts).
+      // hasEverPaidState seul ne suffit plus : c'est un flag localStorage
+      // falsifiable, ce id est revalide dans Supabase a chaque appel.
+      const paidGenerationId = getPaidGenerationId();
+      if (paidGenerationId) {
+        payload.paidGenerationId = paidGenerationId;
+      }
 
       if (mode === "text") {
         payload.text = jobText;
