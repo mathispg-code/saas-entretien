@@ -1,4 +1,5 @@
 import { GENERIC_ERROR_MESSAGE, PAYMENT_REQUIRED_MESSAGE, json, optionsResponse } from "../../lib/api-response";
+import { isPaywallBypassed } from "../../lib/dev-bypass";
 import { getGeneration } from "../../lib/supabase";
 
 export const runtime = "nodejs";
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
     return json({ error: "Aucune analyse CV disponible pour cette génération." }, 404, origin);
   }
 
-  if (!generation.paid) {
+  if (!generation.paid && !isPaywallBypassed()) {
     return json({ error: PAYMENT_REQUIRED_MESSAGE }, 402, origin);
   }
 

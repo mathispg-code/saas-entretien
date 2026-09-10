@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { GENERIC_ERROR_MESSAGE, PAYMENT_REQUIRED_MESSAGE, json, optionsResponse } from "../../lib/api-response";
+import { isPaywallBypassed } from "../../lib/dev-bypass";
 import { getGeneration } from "../../lib/supabase";
 
 export const runtime = "nodejs";
@@ -123,7 +124,7 @@ export async function POST(request: Request) {
     return json({ error: "Génération introuvable." }, 404, origin);
   }
 
-  if (!generation.paid) {
+  if (!generation.paid && !isPaywallBypassed()) {
     return json({ error: PAYMENT_REQUIRED_MESSAGE }, 402, origin);
   }
 

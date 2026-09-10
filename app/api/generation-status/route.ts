@@ -1,4 +1,5 @@
 import { GENERIC_ERROR_MESSAGE, json, optionsResponse } from "../../lib/api-response";
+import { isPaywallBypassed } from "../../lib/dev-bypass";
 import { getGeneration } from "../../lib/supabase";
 
 export const runtime = "nodejs";
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
 
     return json(
       {
-        paid: generation.paid,
+        paid: generation.paid || isPaywallBypassed(),
         result: generation.result ? { ...resultWithoutCv, hasCv } : null,
       },
       200,
