@@ -13,7 +13,7 @@ export function PricingButton({
   label,
   variant,
 }: {
-  plan: "fiche-unique" | "illimite";
+  plan: "fiche-unique" | "pass-hebdo" | "illimite";
   label: string;
   variant: "primary" | "secondary";
 }) {

@@ -26,6 +26,21 @@ const PLANS = [
     featured: false,
   },
   {
+    id: "pass-hebdo" as const,
+    name: "Pass hebdomadaire",
+    price: "6,99 €",
+    period: "/ semaine",
+    description: "Pour une recherche intensive sur une courte période.",
+    features: [
+      "Génération illimitée de fiches de poste pendant 7 jours",
+      "Feedback IA, analyse de CV et export PDF inclus sur chaque candidature",
+      "Jusqu'à 12 questions par fiche, sans supplément",
+      "Aucune reconduction automatique",
+    ],
+    cta: "Choisir cette offre",
+    featured: false,
+  },
+  {
     id: "illimite" as const,
     name: "Illimité",
     price: "9,99 €",
@@ -48,7 +63,7 @@ export default function TarifsPage() {
       <SiteHeader />
 
       <section className="px-4 pb-20 pt-14 sm:pt-20">
-        <div className="mx-auto max-w-5xl">
+        <div className="mx-auto max-w-6xl">
           <RevealOnScroll className="text-center">
             <h1 className="text-2xl font-extrabold tracking-tight text-navy-900 sm:text-3xl">
               Choisis la formule qui te <span className="text-emerald-500">correspond</span>
@@ -58,11 +73,11 @@ export default function TarifsPage() {
             </p>
           </RevealOnScroll>
 
-          <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-3">
             {PLANS.map((plan, i) => (
               <RevealOnScroll key={plan.id} delayMs={i * 100}>
                 <div
-                  className={`relative flex h-full flex-col rounded-3xl border bg-white p-8 shadow-sm ${
+                  className={`relative mx-auto flex h-full max-w-md flex-col rounded-3xl border bg-white p-8 shadow-sm lg:max-w-none ${
                     plan.featured
                       ? "border-2 border-emerald-400 shadow-[0_0_45px_-15px_rgba(16,185,129,0.5)]"
                       : "border-slate-200"

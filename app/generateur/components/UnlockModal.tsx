@@ -46,9 +46,10 @@ export function UnlockModal({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Abonnement pas encore branche a Stripe (voir /tarifs) : simulation
-  // visuelle uniquement, jamais de fausse redirection de paiement.
+  // Abonnement / pass pas encore branches a Stripe (voir /tarifs) :
+  // simulation visuelle uniquement, jamais de fausse redirection de paiement.
   const [subscribing, setSubscribing] = useState(false);
+  const [selectingWeekly, setSelectingWeekly] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -100,6 +101,12 @@ export function UnlockModal({
     console.log("Offre sélectionnée : illimite (depuis la modale de paiement)");
     setSubscribing(true);
     setTimeout(() => setSubscribing(false), 1800);
+  }
+
+  function handleWeeklyClick() {
+    console.log("Offre sélectionnée : pass-hebdo (depuis la modale de paiement)");
+    setSelectingWeekly(true);
+    setTimeout(() => setSelectingWeekly(false), 1800);
   }
 
   return (
@@ -180,6 +187,33 @@ export function UnlockModal({
                 {loading ? "Redirection…" : "Débloquer cette fiche de poste"}
               </button>
               {error && <p className="mt-2 text-center text-xs text-rose-300">{error}</p>}
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-semibold text-white">Pass hebdomadaire</span>
+                <span className="text-lg font-bold text-white">
+                  6,99 € <span className="text-xs font-normal text-slate-400">/ semaine</span>
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-slate-400">
+                Génération illimitée pendant 7 jours, sans reconduction automatique.
+              </p>
+              <button
+                type="button"
+                onClick={handleWeeklyClick}
+                disabled={selectingWeekly}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/40 bg-transparent px-4 py-2.5 text-sm font-semibold text-emerald-300 transition hover:border-emerald-400 hover:bg-emerald-500/10 disabled:cursor-default"
+              >
+                {selectingWeekly ? (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Sélectionné
+                  </>
+                ) : (
+                  "Choisir cette offre"
+                )}
+              </button>
             </div>
 
             <div className="relative rounded-2xl border-2 border-emerald-400 bg-emerald-500/10 p-4">
