@@ -13,12 +13,12 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-20 border-b border-white/10 bg-navy-900/70 backdrop-blur-md">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+      <div className="mx-auto grid max-w-6xl grid-cols-2 items-center px-4 py-4 sm:grid-cols-[1fr_auto_1fr]">
         <Link href="/" className="text-lg font-bold tracking-tight text-white">
           Candi<span className="text-emerald-400">View</span>
         </Link>
 
-        <nav className="flex items-center gap-1">
+        <nav className="col-start-2 flex items-center justify-self-end gap-1 sm:justify-self-center">
           {NAV_LINKS.map(({ href, label }) => {
             const active = pathname === href;
             return (
