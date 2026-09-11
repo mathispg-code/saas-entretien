@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Download, FileText, Lock, Sparkles, Unlock, X } from "lucide-react";
+import Link from "next/link";
+import { Check, Download, FileText, Lock, Sparkles, Unlock, X } from "lucide-react";
 import { SpinnerIcon } from "../../components/icons";
 import { startCheckout } from "../lib/checkout";
 import { GENERIC_ERROR_MESSAGE } from "../types";
@@ -26,10 +27,11 @@ const BENEFITS = [
 ];
 
 /**
- * Modale de conversion vers le pack payant (3,99€, paiement unique).
- * Reutilisee pour les deux points d'entree : clic sur un element verrouille
- * (feedback / CV / export PDF) et popup automatique apres une generation
- * gratuite — seul le libelle du bouton secondaire differe entre les deux.
+ * Modale de conversion, presentant les deux offres (Fiche unique 3,99€ et
+ * Illimite 9,99€/mois — voir /tarifs). Reutilisee pour les deux points
+ * d'entree : clic sur un element verrouille (feedback / CV / export PDF /
+ * 8-12 questions) et popup automatique apres une generation gratuite — seul
+ * le libelle du bouton secondaire differe entre les deux.
  */
 export function UnlockModal({
   open,
@@ -44,6 +46,9 @@ export function UnlockModal({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Abonnement pas encore branche a Stripe (voir /tarifs) : simulation
+  // visuelle uniquement, jamais de fausse redirection de paiement.
+  const [subscribing, setSubscribing] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -89,6 +94,12 @@ export function UnlockModal({
       setError(err instanceof Error ? err.message : GENERIC_ERROR_MESSAGE);
       setLoading(false);
     }
+  }
+
+  function handleSubscribeClick() {
+    console.log("Offre sélectionnée : illimite (depuis la modale de paiement)");
+    setSubscribing(true);
+    setTimeout(() => setSubscribing(false), 1800);
   }
 
   return (
@@ -150,24 +161,64 @@ export function UnlockModal({
             ))}
           </div>
 
-          <p className="mt-6 text-center text-sm text-slate-200">
-            <span className="font-semibold text-white">3,99 € par fiche de poste</span> — paiement
-            unique. Une nouvelle fiche de poste nécessitera un nouveau paiement.
-          </p>
+          <div className="mt-6 space-y-3">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-semibold text-white">Fiche unique</span>
+                <span className="text-lg font-bold text-white">3,99 €</span>
+              </div>
+              <p className="mt-1 text-xs text-slate-400">
+                Paiement unique — débloque cette fiche de poste précise.
+              </p>
+              <button
+                type="button"
+                onClick={handleUnlock}
+                disabled={!generationId || loading}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/40 bg-transparent px-4 py-2.5 text-sm font-semibold text-emerald-300 transition hover:border-emerald-400 hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {loading ? <SpinnerIcon className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                {loading ? "Redirection…" : "Débloquer cette fiche de poste"}
+              </button>
+              {error && <p className="mt-2 text-center text-xs text-rose-300">{error}</p>}
+            </div>
 
-          <button
-            type="button"
-            onClick={handleUnlock}
-            disabled={!generationId || loading}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3.5 text-sm font-semibold text-navy-950 shadow-[0_0_35px_-8px_rgba(16,185,129,0.7)] transition hover:scale-[1.015] hover:bg-emerald-400 hover:shadow-[0_0_45px_-6px_rgba(16,185,129,0.85)] active:scale-[0.99] disabled:cursor-not-allowed disabled:scale-100 disabled:bg-white/10 disabled:text-slate-500 disabled:shadow-none"
+            <div className="relative rounded-2xl border-2 border-emerald-400 bg-emerald-500/10 p-4">
+              <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-emerald-500 px-3 py-0.5 text-[10px] font-bold uppercase tracking-wide text-navy-950">
+                Populaire
+              </span>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-semibold text-white">Illimité</span>
+                <span className="text-lg font-bold text-white">
+                  9,99 € <span className="text-xs font-normal text-slate-300">/ mois</span>
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-slate-300">
+                Génération illimitée de fiches de poste, tout inclus.
+              </p>
+              <button
+                type="button"
+                onClick={handleSubscribeClick}
+                disabled={subscribing}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-navy-950 shadow-[0_0_25px_-8px_rgba(16,185,129,0.7)] transition hover:scale-[1.015] hover:bg-emerald-400 disabled:cursor-default"
+              >
+                {subscribing ? (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Sélectionné
+                  </>
+                ) : (
+                  "S'abonner"
+                )}
+              </button>
+            </div>
+          </div>
+
+          <Link
+            href="/tarifs"
+            className="mt-4 block text-center text-xs font-medium text-emerald-300 transition hover:text-emerald-200 hover:underline"
           >
-            {loading ? <SpinnerIcon className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-            {loading ? "Redirection…" : "Débloquer cette fiche de poste — 3,99 €"}
-          </button>
-
-          {error && (
-            <p className="mt-3 text-center text-sm text-rose-300">{error}</p>
-          )}
+            Voir tous les tarifs →
+          </Link>
 
           <button
             type="button"

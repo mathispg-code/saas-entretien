@@ -653,11 +653,13 @@ export default function GenerateurPage() {
                   // un flag "à vie" sur l'appareil) — voir isLocked plus haut.
                   const optionDisabled =
                     !paid && (trialUsed || count !== FREE_TRIAL_QUESTION_COUNT);
-                  // "8"/"12" verrouillés uniquement à cause de l'essai déjà
-                  // consommé (pas sur un appareil neuf, où c'est juste "à
-                  // venir") ouvrent la modale de paiement au clic plutôt que
-                  // de ne rien faire. "5" n'est jamais concerné.
-                  const opensUnlockModal = isLocked && count !== FREE_TRIAL_QUESTION_COUNT;
+                  // "8"/"12" ne sont jamais gratuits, meme sur un appareil
+                  // neuf n'ayant jamais utilise son essai gratuit : le clic
+                  // ouvre directement la modale de paiement plutot que de ne
+                  // rien faire. "5" n'est jamais concerne ici (voir isLocked
+                  // et le bouton "Generer" plus bas pour la reutilisation de
+                  // l'essai gratuit deja consomme).
+                  const opensUnlockModal = !paid && count !== FREE_TRIAL_QUESTION_COUNT;
                   return (
                     <button
                       key={count}
