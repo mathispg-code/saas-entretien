@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Lock, X } from "lucide-react";
 import { SiteHeader } from "../components/SiteHeader";
 import { SiteFooter } from "../components/SiteFooter";
@@ -14,7 +15,6 @@ import {
   ZapIcon,
 } from "../components/icons";
 import {
-  FREE_TRIAL_LOCKED_MESSAGE,
   FREE_TRIAL_QUESTION_COUNT,
   hasUsedFreeTrial,
   markFreeTrialUsed,
@@ -758,9 +758,40 @@ export default function GenerateurPage() {
 
       {isLocked && questions === null && (
         <main className="mx-auto max-w-4xl px-4 pb-16 pt-10">
-          <div className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-            <Lock className="mx-auto h-8 w-8 text-slate-400" />
-            <p className="mt-3 text-slate-700">{FREE_TRIAL_LOCKED_MESSAGE}</p>
+          <div className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50">
+              <Lock className="h-5 w-5 text-emerald-600" />
+            </div>
+            <h2 className="mt-4 text-lg font-bold text-navy-900">
+              Tu as testé gratuitement CandiView
+            </h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Pour continuer, choisis la formule qui te correspond :
+            </p>
+
+            <div className="mt-5 space-y-2 text-left">
+              <div className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-sm">
+                <span className="text-slate-700">
+                  <span className="font-semibold text-navy-900">Fiche unique</span> — débloque
+                  cette candidature
+                </span>
+                <span className="flex-none font-semibold text-navy-900">3,99 €</span>
+              </div>
+              <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm">
+                <span className="text-slate-700">
+                  <span className="font-semibold text-navy-900">Illimité</span> — toutes tes
+                  candidatures
+                </span>
+                <span className="flex-none font-semibold text-emerald-700">9,99 € / mois</span>
+              </div>
+            </div>
+
+            <Link
+              href="/tarifs"
+              className="mt-6 flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-navy-950 shadow-[0_0_25px_-8px_rgba(16,185,129,0.7)] transition hover:scale-[1.015] hover:bg-emerald-400"
+            >
+              Voir les tarifs
+            </Link>
           </div>
         </main>
       )}

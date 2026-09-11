@@ -14,9 +14,6 @@ const STORAGE_KEY = "entretien-ia:free-trial-used";
 
 export const FREE_TRIAL_QUESTION_COUNT = 5;
 
-export const FREE_TRIAL_LOCKED_MESSAGE =
-  "Tu as déjà utilisé ta génération gratuite. Reviens bientôt pour la suite !";
-
 export function hasUsedFreeTrial(): boolean {
   if (typeof window === "undefined") return false;
   try {
