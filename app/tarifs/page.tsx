@@ -29,7 +29,12 @@ const PLANS = [
     id: "pass-hebdo" as const,
     name: "Pass hebdomadaire",
     price: "6,99 €",
-    period: "/ semaine",
+    // Paiement unique (comme "Fiche unique"), pas un abonnement : donne un
+    // acces illimite pendant 7 jours puis s'arrete tout seul, sans jamais
+    // redebiter. Le libelle doit rester distinct de "/ mois" (Illimite,
+    // vrai abonnement recurrent) pour ne jamais laisser croire a un
+    // prelevement hebdomadaire recurrent.
+    period: "paiement unique",
     description: "Pour une recherche intensive sur une courte période.",
     features: [
       "Génération illimitée de fiches de poste pendant 7 jours",

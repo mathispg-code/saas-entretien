@@ -3,11 +3,15 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
 
-// Paiement pas encore branche (voir plan valide avec l'utilisateur) :
-// clic = retour visuel + log, jamais de redirection ni d'etat "paiement en
-// cours" qui laisserait croire a une vraie transaction. Le vrai Stripe
-// arrivera dans une etape separee (notamment l'abonnement recurrent, qui
-// n'existe pas encore cote Stripe).
+// Paiement pas encore branche sur cette page (voir TODO.md) : clic = retour
+// visuel + log, jamais de redirection ni d'etat "paiement en cours" qui
+// laisserait croire a une vraie transaction. Le vrai Stripe pour "Fiche
+// unique" existe deja mais ailleurs (flux /generateur, ou un generationId
+// precis est requis — voir UnlockModal). A garder en tete pour la suite :
+// - "pass-hebdo" reste un paiement UNIQUE (comme "fiche-unique"), pas un
+//   abonnement — Stripe Checkout mode "payment".
+// - "illimite" est un vrai ABONNEMENT recurrent — Stripe Checkout mode
+//   "subscription", avec gestion de la resiliation.
 export function PricingButton({
   plan,
   label,

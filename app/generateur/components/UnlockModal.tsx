@@ -47,8 +47,14 @@ export function UnlockModal({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Abonnement / pass pas encore branches a Stripe (voir /tarifs) :
+  // Pass hebdo et Illimite pas encore branches a Stripe (voir TODO.md) :
   // simulation visuelle uniquement, jamais de fausse redirection de paiement.
+  // Nature differente a garder en tete pour le futur branchement :
+  // - Pass hebdo (6,99€) : paiement UNIQUE comme "Fiche unique", donne un
+  //   acces illimite 7 jours puis s'arrete seul, sans reconduction — donc
+  //   un Stripe Checkout en mode "payment", pas "subscription".
+  // - Illimite (9,99€/mois) : vrai ABONNEMENT recurrent, redebite chaque
+  //   mois jusqu'a resiliation — Stripe Checkout en mode "subscription".
   const [subscribing, setSubscribing] = useState(false);
   const [selectingWeekly, setSelectingWeekly] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -193,7 +199,7 @@ export function UnlockModal({
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="font-semibold text-white">Pass hebdomadaire</p>
-                  <p className="text-xs text-slate-400">6,99 € · / semaine</p>
+                  <p className="text-xs text-slate-400">6,99 € · paiement unique</p>
                 </div>
                 <button
                   type="button"
