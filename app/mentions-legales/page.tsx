@@ -5,6 +5,16 @@ export const metadata: Metadata = {
   title: "Mentions légales — CandiView",
 };
 
+const CONTACT_EMAIL = "contact@candiview.fr";
+
+function ToComplete({ label }: { label: string }) {
+  return (
+    <mark className="rounded bg-amber-100 px-1 font-semibold text-amber-800">
+      [À COMPLÉTER : {label}]
+    </mark>
+  );
+}
+
 export default function MentionsLegales() {
   return (
     <div className="min-h-screen bg-slate-50">
@@ -32,39 +42,51 @@ export default function MentionsLegales() {
           <section>
             <h2 className="text-base font-semibold text-navy-800">Éditeur du site</h2>
             <p className="mt-2">
-              Le présent site est édité par :<br />
-              [Ton nom et prénom]
+              Le site candiview.fr (nom commercial : CandiView) est édité par :<br />
+              <ToComplete label="prénom et nom" />, entrepreneur individuel
+              (micro-entrepreneur)
               <br />
-              Statut : [Ton statut juridique — ex : entrepreneur individuel,
-              auto-entrepreneur, particulier]
+              SIREN : 109 791 426
               <br />
-              Adresse : [Ton adresse postale]
+              SIRET : <ToComplete label="SIRET complet" />
               <br />
-              Numéro SIRET : [Ton numéro SIRET, le cas échéant]
+              Immatriculé au RCS de Paris, n° 109 791 426
               <br />
-              Email de contact : [Ton email de contact]
+              Adresse : 173 rue de Courcelles, 75017 Paris
               <br />
-              Téléphone : [Ton numéro de téléphone — optionnel]
+              Email :{" "}
+              <a
+                href={`mailto:${CONTACT_EMAIL}`}
+                className="font-medium text-emerald-600 underline hover:text-emerald-700"
+              >
+                {CONTACT_EMAIL}
+              </a>
+              <br />
+              TVA non applicable, article 293 B du CGI.
             </p>
-          </section>
-
-          <section>
-            <h2 className="text-base font-semibold text-navy-800">
-              Directeur de la publication
-            </h2>
-            <p className="mt-2">[Ton nom et prénom]</p>
+            <p className="mt-3">
+              Directeur de la publication : <ToComplete label="prénom et nom" />
+            </p>
           </section>
 
           <section>
             <h2 className="text-base font-semibold text-navy-800">Hébergement</h2>
             <p className="mt-2">
-              Ce site est hébergé par :<br />
-              [Nom de l&apos;hébergeur, ex : Vercel Inc.]
+              Le site est hébergé par :<br />
+              Vercel Inc.
               <br />
-              [Adresse de l&apos;hébergeur]
+              440 N Barranca Ave #4133, Covina, CA 91723, États-Unis
               <br />
-              [Site web de l&apos;hébergeur]
+              <a
+                href="https://vercel.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-emerald-600 underline hover:text-emerald-700"
+              >
+                https://vercel.com
+              </a>
             </p>
+            <p className="mt-3">Le nom de domaine candiview.fr est enregistré chez IONOS.</p>
           </section>
 
           <section>
@@ -72,9 +94,23 @@ export default function MentionsLegales() {
               Propriété intellectuelle
             </h2>
             <p className="mt-2">
-              L&apos;ensemble des éléments (textes, graphismes, logo) présents
-              sur ce site relève de la législation sur la propriété
-              intellectuelle. Toute reproduction non autorisée est interdite.
+              Les contenus du site (textes, graphismes, logo), la marque CandiView
+              et le code source appartiennent à l&apos;éditeur. Toute reproduction,
+              représentation ou réutilisation, totale ou partielle, sans son
+              autorisation écrite préalable est interdite.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-base font-semibold text-navy-800">
+              Limitation de responsabilité
+            </h2>
+            <p className="mt-2">
+              CandiView est un outil d&apos;aide à la préparation aux entretiens
+              d&apos;embauche. Les questions et conseils sont générés par
+              intelligence artificielle : ils sont fournis à titre indicatif et
+              peuvent contenir des inexactitudes. L&apos;éditeur ne garantit
+              aucun résultat en entretien, ni l&apos;obtention d&apos;un emploi.
             </p>
           </section>
 
@@ -92,6 +128,20 @@ export default function MentionsLegales() {
                 politique de confidentialité
               </Link>{" "}
               pour le détail du traitement des données.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-base font-semibold text-navy-800">Contact</h2>
+            <p className="mt-2">
+              Pour toute question, écris-nous à{" "}
+              <a
+                href={`mailto:${CONTACT_EMAIL}`}
+                className="font-medium text-emerald-600 underline hover:text-emerald-700"
+              >
+                {CONTACT_EMAIL}
+              </a>
+              .
             </p>
           </section>
         </div>
