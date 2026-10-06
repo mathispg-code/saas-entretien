@@ -125,6 +125,14 @@ export default function Confidentialite() {
                 appliquer la limite d&apos;usage raisonnable.
               </li>
               <li>
+                <strong>La preuve de ton consentement avant paiement</strong> : la case
+                que tu coches sur la page de paiement (acceptation des CGV, demande
+                d&apos;accès immédiat, droit de rétractation) est enregistrée par Stripe.
+                Nous conservons la date et l&apos;heure du paiement, la version des CGV, le
+                texte exact de la case, l&apos;offre, l&apos;identifiant de la session de
+                paiement et l&apos;adresse email saisie à ce moment.
+              </li>
+              <li>
                 <strong>Les demandes de récupération d&apos;accès</strong> : lorsque tu
                 demandes à retrouver ton accès par email, l&apos;adresse saisie et ton
                 adresse IP ne sont conservées que sous forme d&apos;empreinte
@@ -158,6 +166,15 @@ export default function Confidentialite() {
               </li>
               <li>
                 <strong>Traiter les paiements</strong> : exécution du contrat.
+              </li>
+              <li>
+                <strong>Conserver la preuve de ton consentement</strong> (CGV, accès
+                immédiat, droit de rétractation) pour pouvoir la présenter en cas de
+                litige : intérêt légitime et obligations légales applicables.{" "}
+                <Mark
+                  kind="À VÉRIFIER"
+                  label="base légale et durée de conservation de la preuve du consentement, à faire valider par un juriste"
+                />
               </li>
               <li>
                 <strong>Gérer ton accès au Pass hebdomadaire ou à l&apos;abonnement
@@ -244,8 +261,9 @@ export default function Confidentialite() {
               <li>
                 <strong>Stripe</strong> — paiement et gestion de l&apos;abonnement
                 (page de paiement, prélèvements mensuels, portail «&nbsp;Gérer mon
-                abonnement&nbsp;»). Collecte les données de paiement sur ses propres
-                pages ; nous ne voyons ni ne stockons les données de carte
+                abonnement&nbsp;»). Affiche aussi la case de consentement avant le
+                paiement et en enregistre l&apos;acceptation. Collecte les données de
+                paiement sur ses propres pages ; nous ne voyons ni ne stockons les données de carte
                 bancaire.{" "}
                 <Mark
                   kind="À VÉRIFIER"
@@ -381,6 +399,11 @@ export default function Confidentialite() {
                 <strong>Résultats générés et informations techniques</strong> (base
                 de données) :{" "}
                 <Mark kind="À COMPLÉTER" label="durée à décider" />
+              </li>
+              <li>
+                <strong>Preuve du consentement avant paiement</strong> (date du
+                paiement, version des CGV, texte de la case, email) :{" "}
+                <Mark kind="À COMPLÉTER" label="durée de conservation de la preuve" />
               </li>
               <li>
                 <strong>Données d&apos;accès (Pass hebdomadaire / Illimité)</strong>{" "}

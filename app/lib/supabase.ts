@@ -547,3 +547,48 @@ export async function purgeRecoveryData(): Promise<void> {
     console.error("Échec de la purge des demandes de récupération:", attempts.error);
   }
 }
+
+export type NewConsent = {
+  sessionId: string;
+  plan: "unique" | "hebdo" | "mensuel";
+  cgvVersion: string;
+  consentTextId: string;
+  consentText: string;
+  stripeConsent: "accepted" | null;
+  consentedAt: string;
+  email: string | null;
+  generationId: string | null;
+  accessId: string | null;
+};
+
+/**
+ * Enregistre la preuve du consentement d'un paiement abouti (table "consents",
+ * sans droit de modification ni de suppression pour service_role). Idempotent
+ * sur la session Checkout : un webhook rejoue ne cree rien et ne modifie rien.
+ */
+export async function insertConsent(consent: NewConsent): Promise<boolean> {
+  if (!supabase) {
+    console.error("Supabase non configuré : consentement non enregistré.");
+    return false;
+  }
+  const { error } = await supabase.from("consents").upsert(
+    {
+      stripe_checkout_session_id: consent.sessionId,
+      plan: consent.plan,
+      cgv_version: consent.cgvVersion,
+      consent_text_id: consent.consentTextId,
+      consent_text: consent.consentText,
+      stripe_consent: consent.stripeConsent,
+      consented_at: consent.consentedAt,
+      email: consent.email?.trim().toLowerCase() ?? null,
+      generation_id: consent.generationId,
+      access_id: consent.accessId,
+    },
+    { onConflict: "stripe_checkout_session_id", ignoreDuplicates: true },
+  );
+  if (error) {
+    console.error("Échec de l'enregistrement d'un consentement:", error);
+    return false;
+  }
+  return true;
+}

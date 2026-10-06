@@ -1,8 +1,13 @@
 import type Stripe from "stripe";
 import { HEBDO_DURATION_MS } from "../../../lib/access";
+import { consentMessageForStripe, isConsentTextId } from "../../../lib/consent";
+import { SITE_URL } from "../../../lib/site-url";
 import { stripe } from "../../../lib/stripe";
 import {
   createAccess,
+  findAccessBySessionId,
+  getGeneration,
+  insertConsent,
   markGenerationPaid,
   updateSubscriptionAccess,
 } from "../../../lib/supabase";
@@ -99,10 +104,73 @@ function subscriptionFields(subscription: Stripe.Subscription) {
   };
 }
 
+// Paiement abouti : on livre l'achat (generation payee ou acces), puis on
+// enregistre la preuve du consentement. Les deux etapes sont idempotentes : en
+// cas d'echec de l'une, la reponse 500 fait rejouer l'evenement par Stripe.
 async function handleCheckoutCompleted(
   session: Stripe.Checkout.Session,
   eventCreated: number,
 ): Promise<boolean> {
+  const outcome = await grantPurchase(session, eventCreated);
+  if (outcome === "failed") return false;
+  if (outcome === "skipped") return true;
+  return recordConsent(session, eventCreated);
+}
+
+async function recordConsent(
+  session: Stripe.Checkout.Session,
+  eventCreated: number,
+): Promise<boolean> {
+  const cgvVersion = session.metadata?.cgvVersion;
+  const consentTextId = session.metadata?.consentTextId;
+  if (!cgvVersion || !isConsentTextId(consentTextId)) {
+    // Session creee avant la mise en place du consentement Stripe : rien a recopier.
+    console.error("Paiement sans métadonnées de consentement : preuve non enregistrée dans consents.");
+    return true;
+  }
+
+  const plan = (session.metadata?.plan ?? "unique") as "unique" | "hebdo" | "mensuel";
+  const stripeConsent = session.consent?.terms_of_service === "accepted" ? "accepted" : null;
+  if (!stripeConsent) {
+    // Ne devrait pas arriver (la case est obligatoire) : on l'enregistre quand meme, visiblement.
+    console.error("Paiement abouti sans consentement enregistré par Stripe : anomalie à examiner.");
+  }
+
+  // Liens vers l'achat, seulement s'ils existent (cle etrangere).
+  let generationId: string | null = null;
+  let accessId: string | null = null;
+  if (plan === "unique") {
+    const candidate = session.metadata?.generationId;
+    if (candidate && (await getGeneration(candidate))) generationId = candidate;
+  } else {
+    accessId = (await findAccessBySessionId(session.id))?.id ?? null;
+  }
+
+  return insertConsent({
+    sessionId: session.id,
+    plan,
+    cgvVersion,
+    consentTextId,
+    // Texte reellement affiche sur la page de paiement (conserve par Stripe sur la session).
+    consentText:
+      session.custom_text?.terms_of_service_acceptance?.message ??
+      consentMessageForStripe(consentTextId, `${SITE_URL}/cgv`),
+    stripeConsent,
+    // Heure du paiement : le consentement a ete donne au plus tard a cet instant.
+    consentedAt: new Date(eventCreated * 1000).toISOString(),
+    email: session.customer_details?.email ?? session.customer_email ?? null,
+    generationId,
+    accessId,
+  });
+}
+
+type PurchaseOutcome = "granted" | "skipped" | "failed";
+
+async function grantPurchase(
+  session: Stripe.Checkout.Session,
+  eventCreated: number,
+): Promise<PurchaseOutcome> {
+  const done = (ok: boolean): PurchaseOutcome => (ok ? "granted" : "failed");
   const plan = session.metadata?.plan;
   const generationId = session.metadata?.generationId;
 
@@ -110,10 +178,10 @@ async function handleCheckoutCompleted(
   if (!plan) {
     if (!generationId) {
       console.error("checkout.session.completed reçu sans generationId ni plan en metadata.");
-      return true;
+      return "skipped";
     }
     // Idempotent (remettre paid=true n'a aucun effet de bord).
-    return markGenerationPaid(generationId, session.id);
+    return done(await markGenerationPaid(generationId, session.id));
   }
 
   const email = session.customer_details?.email ?? session.customer_email ?? null;
@@ -122,9 +190,9 @@ async function handleCheckoutCompleted(
   if (plan === "hebdo") {
     if (session.payment_status !== "paid") {
       console.error("Pass hebdo : session terminée mais non payée, accès non créé.");
-      return true;
+      return "skipped";
     }
-    return createAccess({
+    return done(await createAccess({
       sessionId: session.id,
       email,
       customerId: customerId(session.customer),
@@ -134,7 +202,7 @@ async function handleCheckoutCompleted(
       currentPeriodEnd: null,
       cancelAtPeriodEnd: false,
       subscriptionId: null,
-    });
+    }));
   }
 
   // Illimite : abonnement mensuel, tant que Stripe le dit actif.
@@ -143,13 +211,13 @@ async function handleCheckoutCompleted(
       typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
     if (!subscriptionId) {
       console.error("Abonnement : session terminée sans abonnement associé.");
-      return true;
+      return "skipped";
     }
     const subscription = await currentSubscription(subscriptionId, null);
     const fields = subscription
       ? subscriptionFields(subscription)
       : { status: "active", currentPeriodEnd: null, cancelAtPeriodEnd: false };
-    return createAccess({
+    return done(await createAccess({
       sessionId: session.id,
       email,
       customerId: customerId(session.customer),
@@ -159,11 +227,11 @@ async function handleCheckoutCompleted(
       currentPeriodEnd: fields.currentPeriodEnd,
       cancelAtPeriodEnd: fields.cancelAtPeriodEnd,
       subscriptionId,
-    });
+    }));
   }
 
   console.error(`checkout.session.completed : offre inconnue "${plan}".`);
-  return true;
+  return "skipped";
 }
 
 async function syncSubscription(

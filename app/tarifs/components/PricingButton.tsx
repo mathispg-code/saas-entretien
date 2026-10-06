@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CgvConsent } from "../../components/CgvConsent";
 import { SpinnerIcon } from "../../components/icons";
 import { startCheckout } from "../../generateur/lib/checkout";
 import { GENERIC_ERROR_MESSAGE } from "../../generateur/types";
@@ -66,9 +65,6 @@ export function PricingButton({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [access, setAccess] = useState<AccessStatus | null>(null);
-  // Case CGV obligatoire : le bouton reste inactif tant qu'elle n'est pas
-  // cochee (demande d'execution immediate + renonciation a la retractation).
-  const [accepted, setAccepted] = useState(false);
 
   useEffect(() => {
     fetchAccessStatus().then(setAccess);
@@ -115,7 +111,6 @@ export function PricingButton({
     variant === "primary"
       ? "bg-emerald-500 text-navy-950 shadow-[0_0_25px_-8px_rgba(16,185,129,0.7)] enabled:hover:bg-emerald-400 enabled:hover:scale-[1.02] enabled:active:scale-[0.98]"
       : "border border-navy-300 text-navy-800 enabled:hover:border-emerald-400 enabled:hover:text-emerald-600";
-  const lockedClasses = !accepted && !loading ? "cursor-not-allowed opacity-50" : "";
 
   return (
     <div className="space-y-3">
@@ -126,12 +121,25 @@ export function PricingButton({
           CV et export PDF.
         </p>
       )}
-      <CgvConsent checked={accepted} onChange={setAccepted} variant="light" />
+      {/* La case obligatoire (CGV, accès immédiat, droit de rétractation) est
+          affichée par Stripe sur la page de paiement : ici, simple information. */}
+      <p className="text-xs text-slate-500">
+        Tu confirmeras l&apos;acceptation des{" "}
+        <Link
+          href="/cgv"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium underline hover:text-slate-700"
+        >
+          CGV
+        </Link>{" "}
+        sur la page de paiement sécurisée.
+      </p>
       <button
         type="button"
         onClick={handleClick}
-        disabled={loading || !accepted}
-        className={`${baseClasses} ${variantClasses} ${lockedClasses}`}
+        disabled={loading}
+        className={`${baseClasses} ${variantClasses}`}
       >
         {loading ? (
           <>

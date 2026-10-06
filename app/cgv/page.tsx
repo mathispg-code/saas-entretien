@@ -1,9 +1,19 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { CGV_VERSION, consentPlainText } from "../lib/consent";
 
 export const metadata: Metadata = {
   title: "Conditions générales de vente — CandiView",
 };
+
+// Date de la version des CGV en vigueur (source unique : CGV_VERSION, aussi
+// enregistree avec chaque consentement).
+const cgvVersionLabel = new Date(CGV_VERSION).toLocaleDateString("fr-FR", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+});
 
 const CONTACT_EMAIL = "contact@candiview.fr";
 
@@ -261,11 +271,24 @@ export default function Cgv() {
               conditions.
             </p>
             <p className="mt-3">
-              Cette même case est présentée avant le paiement du Pass
-              hebdomadaire et de l&apos;abonnement Illimité, avec le libellé
-              suivant : «&nbsp;J&apos;accepte les CGV et je demande l&apos;exécution
-              immédiate du service. Je reconnais perdre mon droit de
-              rétractation une fois le service exécuté.&nbsp;»
+              Cette case est affichée par Stripe sur la page de paiement
+              sécurisée, avant le paiement, et le paiement n&apos;est possible
+              qu&apos;une fois la case cochée. Elle porte l&apos;un des libellés
+              suivants selon l&apos;offre :
+            </p>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              <li>
+                <strong>Fiche unique et Pass hebdomadaire</strong> :
+                «&nbsp;{consentPlainText("ponctuel-v1")}&nbsp;»
+              </li>
+              <li>
+                <strong>Abonnement Illimité</strong> :
+                «&nbsp;{consentPlainText("abonnement-v1")}&nbsp;»
+              </li>
+            </ul>
+            <p className="mt-3">
+              La date et l&apos;heure du paiement, la version des CGV acceptée et
+              le libellé affiché sont conservés comme preuve du consentement.
             </p>
             <p className="mt-3">
               <Mark
@@ -355,7 +378,7 @@ export default function Cgv() {
               15. Dernière mise à jour
             </h2>
             <p className="mt-2">
-              6 octobre 2026.{" "}
+              {cgvVersionLabel}.{" "}
               <Mark kind="À COMPLÉTER" label="date de mise en vigueur de cette version" />
             </p>
           </section>

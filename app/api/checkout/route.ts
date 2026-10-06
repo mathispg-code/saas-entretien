@@ -1,5 +1,11 @@
 import { GENERIC_ERROR_MESSAGE, json, optionsResponse } from "../../lib/api-response";
 import { getActiveAccess } from "../../lib/access-session";
+import {
+  CGV_VERSION,
+  consentMessageForStripe,
+  consentTextIdForPlan,
+  type CheckoutPlanId,
+} from "../../lib/consent";
 import { getGeneration } from "../../lib/supabase";
 import { SITE_URL } from "../../lib/site-url";
 import { isCheckoutPlan, STRIPE_PRICE_IDS, stripe } from "../../lib/stripe";
@@ -11,6 +17,28 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 // et jamais de l'en-tete Origin de la requete, controlable par l'appelant : il
 // permettrait sinon de faire creer une session Stripe avec une redirection de
 // succes arbitraire.
+
+/**
+ * Case unique affichee par Stripe sur la page de paiement (CGV + demande
+ * d'execution immediate + renonciation / information sur la retractation) :
+ * Stripe la rend obligatoire et enregistre l'acceptation sur la session
+ * (consent.terms_of_service). La version des CGV et l'identifiant du texte
+ * partent en metadonnees (poses par le serveur, donc fiables) : le webhook les
+ * recopie avec la preuve dans la table "consents".
+ */
+function consentSessionParams(plan: CheckoutPlanId) {
+  const textId = consentTextIdForPlan(plan);
+  return {
+    locale: "fr" as const,
+    consent_collection: { terms_of_service: "required" as const },
+    custom_text: {
+      terms_of_service_acceptance: {
+        message: consentMessageForStripe(textId, `${SITE_URL}/cgv`),
+      },
+    },
+    consentMetadata: { cgvVersion: CGV_VERSION, consentTextId: textId },
+  };
+}
 
 export async function OPTIONS(request: Request) {
   return optionsResponse(request);
@@ -64,10 +92,12 @@ export async function POST(request: Request) {
   }
 
   try {
+    const { consentMetadata, ...consentParams } = consentSessionParams("unique");
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [{ price: priceId, quantity: 1 }],
-      metadata: { generationId },
+      metadata: { generationId, ...consentMetadata },
+      ...consentParams,
       success_url: `${SITE_URL}/generateur?checkout=success`,
       cancel_url: `${SITE_URL}/generateur?checkout=cancelled`,
     });
@@ -106,12 +136,14 @@ async function createAccessCheckout(
   }
 
   try {
+    const { consentMetadata, ...consentParams } = consentSessionParams(plan);
     const session = await stripe!.checkout.sessions.create({
       // Pass hebdo : paiement UNIQUE (jamais reconduit). Illimite : vrai
       // abonnement, redebite chaque mois jusqu'a resiliation.
       mode: plan === "hebdo" ? "payment" : "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
-      metadata: { plan },
+      metadata: { plan, ...consentMetadata },
+      ...consentParams,
       ...(plan === "hebdo"
         ? { customer_creation: "always" as const }
         : { subscription_data: { metadata: { plan } } }),

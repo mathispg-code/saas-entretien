@@ -63,24 +63,32 @@ page : **ne pas déployer en production sans les avoir traités**.
   adresse postale, et le droit de le saisir gratuitement après démarche écrite préalable.
 - Date de mise en vigueur de la nouvelle version.
 
-## Consentement CGV / renonciation à la rétractation (en cours)
+## Consentement CGV / renonciation à la rétractation (code en place, à valider)
 
-Décision : case unique gérée par **Stripe Checkout** (`consent_collection[terms_of_service]` +
-`custom_text`), deux textes (Fiche unique + Pass hebdo d'un côté, Illimité de l'autre), preuve
-enregistrée par le webhook dans la table `consents` ([supabase/consents.sql](supabase/consents.sql) :
-date du paiement, version des CGV, texte exact, offre, session Stripe). Variante B (case sur le site +
-enregistrement serveur) si le test sur la vraie page de paiement Stripe montre que le texte
-personnalisé ou le lien vers les CGV ne s'affiche pas correctement.
-- Renseigner l'URL des CGV dans le Dashboard Stripe (public business details), test **et** live.
+Case unique affichée par **Stripe Checkout** sur la page de paiement (testé sur la vraie page : texte
+personnalisé et lien vers les CGV affichés, paiement refusé tant que la case n'est pas cochée), deux
+textes (voir [app/lib/consent.ts](app/lib/consent.ts), source unique aussi reprise dans les CGV).
+Le webhook enregistre la preuve dans la table `consents` ([supabase/consents.sql](supabase/consents.sql)) :
+heure du paiement, version des CGV, texte exact, offre, session Stripe, email. Pas de droit UPDATE/DELETE
+pour `service_role` sur cette table, volontairement.
+- **Dashboard Stripe (test, puis live)** : le nom du compte s'affiche aux clients dans la case et dans
+  le message d'erreur (« environnement de test CandiView ») : le renommer en « CandiView » ; renseigner
+  l'URL des CGV (`https://www.candiview.fr/cgv`) dans les informations publiques ; email de support.
 - Faire valider les deux textes par un juriste (la perte du droit de rétractation d'un abonnement
-  mensuel n'est pas celle d'un pack ponctuel).
+  mensuel n'est pas celle d'un pack ponctuel). Tout changement de texte = nouvel identifiant dans
+  `consent.ts` et nouvelle valeur de `CGV_VERSION` si les CGV changent.
 - **BLOQUANT AVANT LE LIVE : email de confirmation du contrat** (support durable) envoyé via Resend
   après le paiement : offre, prix, date, version des CGV, rappel de la case acceptée et de la
   renonciation, lien vers les CGV, information sur le droit de rétractation. Le reçu Stripe n'en
   tient pas lieu. À faire valider par un juriste.
-- Durée de conservation de la table `consents` (preuve) : à décider (`[À COMPLÉTER]` à ajouter dans
-  la politique de confidentialité). Aucun droit UPDATE/DELETE n'est accordé à `service_role` sur cette
-  table, volontairement.
+- **Moyens de paiement** : la page Stripe propose aussi Klarna, Bancontact, Amazon Pay, Satispay, etc.
+  (réglage du Dashboard). Le webhook ne gère que `checkout.session.completed` : un moyen de paiement
+  à confirmation différée (virement, prélèvement) ne serait pas livré correctement (Pass hebdo ignoré si
+  non payé, Fiche unique marquée payée sans vérifier `payment_status`). Décider : limiter à la carte
+  (Dashboard > Moyens de paiement, ou `payment_method_types`) ou gérer `async_payment_succeeded`.
+- Durée de conservation de la table `consents` (preuve) : à décider (`[À COMPLÉTER]` dans la
+  politique de confidentialité).
+- Lignes de test dans `consents` : à supprimer depuis le SQL Editor (aucun DELETE accordé à l'application).
 
 ## Stripe : configuration du compte et reçus
 
