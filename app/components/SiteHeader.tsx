@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const NAV_LINKS = [
   { href: "/generateur", label: "Générer" },
   { href: "/tarifs", label: "Tarifs" },
+  { href: "/mon-acces", label: "Mon accès" },
 ];
 
 export function SiteHeader() {
@@ -26,7 +27,7 @@ export function SiteHeader() {
                 key={href}
                 href={href}
                 aria-current={active ? "page" : undefined}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                className={`whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-medium transition sm:px-3 ${
                   active
                     ? "bg-emerald-500/10 text-white"
                     : "text-slate-300 hover:text-white"

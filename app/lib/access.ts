@@ -102,7 +102,18 @@ export type PublicAccessStatus =
       cancelAtPeriodEnd: boolean;
       pastDue: boolean;
       canManage: boolean;
+      // Adresse liee a l'achat, masquee (ex. "j***@gmail.com") : ne s'affiche
+      // que pour l'appareil qui possede le cookie d'acces.
+      emailMasked: string | null;
     };
+
+/** "jean.dupont@gmail.com" -> "j***@gmail.com". */
+export function maskEmail(email: string | null): string | null {
+  if (!email) return null;
+  const at = email.lastIndexOf("@");
+  if (at < 1) return null;
+  return `${email[0]}***${email.slice(at)}`;
+}
 
 export function toPublicStatus(row: AccessRow | null): PublicAccessStatus {
   if (!row || !isAccessActive(row)) {
@@ -116,5 +127,6 @@ export function toPublicStatus(row: AccessRow | null): PublicAccessStatus {
     cancelAtPeriodEnd: row.cancel_at_period_end,
     pastDue: row.status === "past_due",
     canManage: row.plan === "mensuel" && Boolean(row.stripe_customer_id),
+    emailMasked: maskEmail(row.email),
   };
 }

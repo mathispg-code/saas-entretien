@@ -259,7 +259,8 @@ export async function createAccess(access: NewAccess): Promise<boolean> {
   const { error } = await supabase.from("access").upsert(
     {
       stripe_checkout_session_id: access.sessionId,
-      email: access.email,
+      // Adresse normalisee en minuscules : la recuperation par email la retrouve ainsi.
+      email: access.email?.trim().toLowerCase() ?? null,
       stripe_customer_id: access.customerId,
       plan: access.plan,
       status: access.status,
@@ -329,4 +330,220 @@ export async function countAccessGenerationsSince(
     throw new Error("Lecture Supabase impossible.");
   }
   return count ?? 0;
+}
+
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
+/**
+ * Acces rattaches a une adresse email (insensible a la casse). Sert a la
+ * recuperation d'acces par email ; leve une exception en cas d'erreur
+ * d'infrastructure. Les caracteres "_" et "%" de l'adresse sont echappes :
+ * ce sont des jokers dans un motif ILIKE.
+ */
+export async function findAccessesByEmail(email: string): Promise<AccessRow[]> {
+  if (!supabase) {
+    throw new Error(
+      "Supabase non configuré (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY manquants).",
+    );
+  }
+  const { data, error } = await supabase
+    .from("access")
+    .select(ACCESS_COLUMNS)
+    .ilike("email", escapeLikePattern(email))
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error) {
+    console.error("Échec de la lecture dans la table access (email):", error);
+    throw new Error("Lecture Supabase impossible.");
+  }
+  return (data as AccessRow[] | null) ?? [];
+}
+
+export async function findAccessById(id: string): Promise<AccessRow | null> {
+  if (!supabase) {
+    throw new Error(
+      "Supabase non configuré (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY manquants).",
+    );
+  }
+  const { data, error } = await supabase
+    .from("access")
+    .select(ACCESS_COLUMNS)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    console.error("Échec de la lecture dans la table access (id):", error);
+    throw new Error("Lecture Supabase impossible.");
+  }
+  return (data as AccessRow | null) ?? null;
+}
+
+/**
+ * Remplace le jeton de l'appareil rattache a un acces (rotation lors d'une
+ * recuperation : l'ancien appareil est deconnecte) ou le retire (null, quand
+ * l'utilisateur desactive son appareil).
+ */
+export async function replaceAccessToken(
+  accessId: string,
+  tokenHash: string | null,
+): Promise<boolean> {
+  if (!supabase) {
+    console.error("Supabase non configuré : jeton d'accès non remplacé.");
+    return false;
+  }
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("access")
+    .update({ token_hash: tokenHash, claimed_at: tokenHash ? now : null, updated_at: now })
+    .eq("id", accessId)
+    .select("id");
+  if (error) {
+    console.error("Échec du remplacement du jeton d'un accès:", error);
+    return false;
+  }
+  return (data?.length ?? 0) > 0;
+}
+
+/** Enregistre une demande de recuperation (adresse et IP sous forme d'empreintes). */
+export async function recordRecoveryAttempt(
+  emailHash: string,
+  ipHash: string,
+): Promise<string | null> {
+  if (!supabase) {
+    throw new Error(
+      "Supabase non configuré (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY manquants).",
+    );
+  }
+  const { data, error } = await supabase
+    .from("access_recovery_attempts")
+    .insert({ email_hash: emailHash, ip_hash: ipHash })
+    .select("id")
+    .single();
+  if (error || !data) {
+    console.error("Échec de l'enregistrement d'une demande de récupération:", error);
+    return null;
+  }
+  return data.id as string;
+}
+
+export async function markRecoveryEmailSent(attemptId: string): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from("access_recovery_attempts")
+    .update({ email_sent: true })
+    .eq("id", attemptId);
+  if (error) {
+    console.error("Échec du marquage d'un email de récupération envoyé:", error);
+  }
+}
+
+/** Dates des demandes recentes pour une adresse (empreinte), pour les limites. */
+export async function listRecoveryAttemptDates(
+  emailHash: string,
+  sinceIso: string,
+): Promise<number[]> {
+  if (!supabase) {
+    throw new Error(
+      "Supabase non configuré (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY manquants).",
+    );
+  }
+  const { data, error } = await supabase
+    .from("access_recovery_attempts")
+    .select("created_at")
+    .eq("email_hash", emailHash)
+    .gte("created_at", sinceIso)
+    .limit(100);
+  if (error) {
+    console.error("Échec de la lecture des demandes de récupération (adresse):", error);
+    throw new Error("Lecture Supabase impossible.");
+  }
+  return (data ?? []).map((row) => new Date(row.created_at as string).getTime());
+}
+
+/** Nombre de demandes recentes depuis une IP (empreinte), ou d'envois reels au total. */
+export async function countRecoveryAttempts(
+  filter: { ipHash: string } | { sentOnly: true },
+  sinceIso: string,
+): Promise<number> {
+  if (!supabase) {
+    throw new Error(
+      "Supabase non configuré (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY manquants).",
+    );
+  }
+  let query = supabase
+    .from("access_recovery_attempts")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", sinceIso);
+  query = "ipHash" in filter ? query.eq("ip_hash", filter.ipHash) : query.eq("email_sent", true);
+  const { count, error } = await query;
+  if (error) {
+    console.error("Échec du décompte des demandes de récupération:", error);
+    throw new Error("Lecture Supabase impossible.");
+  }
+  return count ?? 0;
+}
+
+export async function createLoginToken(
+  accessId: string,
+  tokenHash: string,
+  expiresAtIso: string,
+): Promise<boolean> {
+  if (!supabase) {
+    console.error("Supabase non configuré : jeton de connexion non créé.");
+    return false;
+  }
+  const { error } = await supabase
+    .from("access_login_tokens")
+    .insert({ access_id: accessId, token_hash: tokenHash, expires_at: expiresAtIso });
+  if (error) {
+    console.error("Échec de la création d'un jeton de connexion:", error);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Consomme un jeton de connexion : atomique (un seul appelant peut reussir),
+ * refuse un jeton deja utilise ou expire. Renvoie l'acces associe, sinon null.
+ */
+export async function consumeLoginToken(tokenHash: string): Promise<string | null> {
+  if (!supabase) {
+    throw new Error(
+      "Supabase non configuré (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY manquants).",
+    );
+  }
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("access_login_tokens")
+    .update({ used_at: now })
+    .eq("token_hash", tokenHash)
+    .is("used_at", null)
+    .gt("expires_at", now)
+    .select("access_id");
+  if (error) {
+    console.error("Échec de la consommation d'un jeton de connexion:", error);
+    throw new Error("Lecture Supabase impossible.");
+  }
+  return data && data.length > 0 ? (data[0].access_id as string) : null;
+}
+
+/** Purge quotidienne : jetons expires depuis plus d'un jour, demandes de plus de 2 jours. */
+export async function purgeRecoveryData(): Promise<void> {
+  if (!supabase) return;
+  const day = 24 * 60 * 60 * 1000;
+  const tokens = await supabase
+    .from("access_login_tokens")
+    .delete()
+    .lt("expires_at", new Date(Date.now() - day).toISOString());
+  if (tokens.error) {
+    console.error("Échec de la purge des jetons de connexion:", tokens.error);
+  }
+  const attempts = await supabase
+    .from("access_recovery_attempts")
+    .delete()
+    .lt("created_at", new Date(Date.now() - 2 * day).toISOString());
+  if (attempts.error) {
+    console.error("Échec de la purge des demandes de récupération:", attempts.error);
+  }
 }

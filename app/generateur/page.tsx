@@ -154,7 +154,7 @@ export default function GenerateurPage() {
           setAccessJustActivated(true);
         } else if (outcome === "already") {
           setAccessNotice(
-            "Cet accès a déjà été activé sur un autre appareil ou navigateur. L'accès est lié à l'appareil utilisé lors de l'achat : contacte-nous à contact@candiview.fr si tu l'as perdu.",
+            "Cet accès a déjà été activé sur un autre appareil ou navigateur. L'accès est lié à l'appareil utilisé lors de l'achat : tu peux le retrouver par email depuis la page « Mon accès ».",
           );
         } else if (outcome === "pending") {
           setAccessNotice(
@@ -626,9 +626,12 @@ export default function GenerateurPage() {
           )}
 
           {accessNotice && (
-            <p className="mb-4 rounded-2xl border border-amber-400/40 bg-amber-500/10 p-4 text-left text-sm text-amber-100">
-              {accessNotice}
-            </p>
+            <div className="mb-4 rounded-2xl border border-amber-400/40 bg-amber-500/10 p-4 text-left text-sm text-amber-100">
+              <p>{accessNotice}</p>
+              <Link href="/mon-acces" className="mt-2 inline-block font-semibold underline hover:text-white">
+                Retrouver mon accès →
+              </Link>
+            </div>
           )}
 
           {/* Pack "Fiche unique" paye mais pas encore utilise (achat depuis

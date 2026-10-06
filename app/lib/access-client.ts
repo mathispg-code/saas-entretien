@@ -14,6 +14,7 @@ export type ActiveAccessStatus = {
   cancelAtPeriodEnd: boolean;
   pastDue: boolean;
   canManage: boolean;
+  emailMasked: string | null;
 };
 
 export type AccessStatus = { active: false } | ActiveAccessStatus;
@@ -88,6 +89,42 @@ export async function claimAccessWithRetry(sessionId: string): Promise<ClaimOutc
     await new Promise((resolve) => setTimeout(resolve, 1500));
   }
   return "pending";
+}
+
+/**
+ * Demande un lien de recuperation par email. La reponse est volontairement la
+ * meme que l'adresse soit connue ou non : seul un refus de limite (429) ou un
+ * format d'adresse invalide (400) est distinguable.
+ */
+export async function requestAccessRecovery(email: string, website: string): Promise<void> {
+  const res = await fetch("/api/access/recover", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, website }),
+  });
+  if (res.ok) return;
+  const data: { error?: string } = await res.json().catch(() => ({}));
+  throw new Error(data.error ?? GENERIC_ERROR_MESSAGE);
+}
+
+/** Echange le jeton du lien contre le cookie d'acces de ce navigateur. */
+export async function confirmAccessRecovery(token: string): Promise<ActiveAccessStatus> {
+  const res = await fetch("/api/access/recover/confirm", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  const data: (ActiveAccessStatus & { error?: string }) | { active: false; error?: string } =
+    await res.json().catch(() => ({ active: false as const }));
+  if (!res.ok || !data.active) {
+    throw new Error(("error" in data && data.error) || GENERIC_ERROR_MESSAGE);
+  }
+  return data;
+}
+
+/** Desactive cet appareil : efface le cookie et retire le jeton cote serveur. */
+export async function logoutAccess(): Promise<void> {
+  await fetch("/api/access/logout", { method: "POST" });
 }
 
 function formatDate(iso: string): string {

@@ -125,6 +125,14 @@ export default function Confidentialite() {
                 appliquer la limite d&apos;usage raisonnable.
               </li>
               <li>
+                <strong>Les demandes de récupération d&apos;accès</strong> : lorsque tu
+                demandes à retrouver ton accès par email, l&apos;adresse saisie et ton
+                adresse IP ne sont conservées que sous forme d&apos;empreinte
+                irréversible (HMAC), avec la date de la demande, pour limiter les
+                abus. Le lien envoyé est associé à ton accès par une empreinte de son
+                jeton, valable 15 minutes et à usage unique.
+              </li>
+              <li>
                 <strong>Des statistiques de fréquentation</strong> (voir plus bas,
                 « Mesure d&apos;audience »).
               </li>
@@ -156,6 +164,12 @@ export default function Confidentialite() {
                 Illimité</strong> (rattacher l&apos;accès à ton achat, vérifier qu&apos;il
                 est valide, gérer le renouvellement et la résiliation) : exécution
                 du contrat.
+              </li>
+              <li>
+                <strong>Te permettre de retrouver ton accès par email</strong> (envoi
+                d&apos;un lien à usage unique) : exécution du contrat ; et{" "}
+                <strong>limiter les abus</strong> de cet envoi (nombre de demandes par
+                adresse et par IP) : intérêt légitime.
               </li>
               <li>
                 <strong>Mesure d&apos;audience</strong> : intérêt légitime de
@@ -214,6 +228,17 @@ export default function Confidentialite() {
                 <Mark
                   kind="À VÉRIFIER"
                   label="région d'exécution des fonctions et garanties de transfert hors UE"
+                />
+              </li>
+              <li>
+                <strong>Resend</strong> — envoi de l&apos;email contenant ton lien de
+                récupération d&apos;accès, depuis une adresse du sous-domaine
+                send.candiview.fr. Reçoit ton adresse email et le contenu du message,
+                uniquement lorsque tu demandes ce lien et qu&apos;un accès valide existe
+                pour cette adresse.{" "}
+                <Mark
+                  kind="À VÉRIFIER"
+                  label="localisation du traitement (région choisie à la création du compte) et garanties de transfert hors UE"
                 />
               </li>
               <li>
@@ -330,6 +355,11 @@ export default function Confidentialite() {
                 n&apos;est envoyé qu&apos;à CandiView.
               </li>
               <li>
+                Lorsque tu retrouves ton accès par email sur un autre appareil, le
+                cookie de ce nouvel appareil remplace l&apos;ancien : l&apos;accès est
+                alors désactivé sur l&apos;appareil précédent.
+              </li>
+              <li>
                 Durée de vie : 12 mois au maximum. La validité réelle de ton accès
                 (7 jours pour le Pass, tant que l&apos;abonnement est actif pour
                 Illimité) est vérifiée côté serveur.
@@ -357,6 +387,12 @@ export default function Confidentialite() {
                 (adresse email, statut, identifiants Stripe) : pendant la durée de
                 l&apos;accès, puis{" "}
                 <Mark kind="À COMPLÉTER" label="durée de conservation après la fin de l'accès" />
+              </li>
+              <li>
+                <strong>Demandes de récupération d&apos;accès</strong> (empreintes de
+                l&apos;adresse et de l&apos;IP, date) : 2 jours au maximum. Les jetons des
+                liens envoyés sont supprimés au plus tard un jour après leur
+                expiration (15 minutes de validité).
               </li>
               <li>
                 <strong>Cookie d&apos;accès :</strong> 12 mois au maximum, ou jusqu&apos;à ce

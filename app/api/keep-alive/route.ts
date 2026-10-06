@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { GENERIC_ERROR_MESSAGE } from "../../lib/api-response";
-import { pingDatabase } from "../../lib/supabase";
+import { pingDatabase, purgeRecoveryData } from "../../lib/supabase";
 
 export const runtime = "nodejs";
 // Jamais mise en cache : chaque appel doit vraiment toucher Supabase.
@@ -28,6 +28,14 @@ export async function GET(request: Request) {
 
   try {
     await pingDatabase();
+    // Purge quotidienne des jetons de connexion expires et des anciennes
+    // demandes de recuperation d'acces (voir supabase/access-recovery.sql).
+    // Best-effort : un echec n'invalide pas le ping de maintien en activite.
+    try {
+      await purgeRecoveryData();
+    } catch (error) {
+      console.error("Échec de la purge des données de récupération:", error);
+    }
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: GENERIC_ERROR_MESSAGE }, { status: 500 });

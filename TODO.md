@@ -27,10 +27,15 @@ hash est en base, table `access`), vérification côté serveur dans
 - **Customer Portal** : une configuration de test a été créée par API (résiliation en fin de
   période, mise à jour de la carte, factures). À refaire en mode **live**. Option sans code :
   activer la page de connexion du portail (lien par email) pour résilier depuis un autre appareil.
-- **Récupération d'accès par email (OBLIGATOIRE avant le live)** : l'accès est lié au cookie ;
-  perte du cookie / changement d'appareil = accès perdu et la session Checkout ne peut être
-  réclamée qu'une fois. À construire : envoi d'un lien signé à usage unique (ex. Resend, avec
-  SPF/DKIM sur le domaine IONOS) vers l'email du paiement.
+- **Récupération d'accès par email** : code en place (page [/mon-acces](app/mon-acces/page.tsx),
+  lien magique à usage unique valable 15 minutes, jeton dans le fragment de l'URL, rotation du
+  cookie = un seul appareil à la fois, limites anti-abus). Reste à faire avant le live :
+  exécuter [supabase/access-recovery.sql](supabase/access-recovery.sql) (fait en test),
+  configurer **Resend** (domaine `send.candiview.fr` en région UE, clé API limitée à l'envoi) et
+  les enregistrements DNS chez IONOS, puis créer les variables Vercel `RESEND_API_KEY` (et
+  éventuellement `EMAIL_FROM`, `RECOVERY_IP_HOURLY_LIMIT`, `RECOVERY_GLOBAL_DAILY_LIMIT`).
+  Tester un vrai envoi (délivrabilité Gmail/Outlook) et le parcours mobile (appli Gmail).
+  Ajouter un enregistrement DMARC (`_dmarc`, `p=none` pour commencer).
 - Décision à confirmer : coupure immédiate dès que Stripe passe l'abonnement en `canceled`/
   `unpaid` ; l'accès est conservé en `past_due` (relances Stripe) avec un message "mets à jour
   ta carte via Gérer mon abonnement".
@@ -87,6 +92,8 @@ Page à jour avec le cookie d'accès, l'email et les données d'accès Pass/Illi
 - `[À COMPLÉTER : durée à décider]` : durée de conservation des générations en base.
 - `[À COMPLÉTER]` : durée de conservation des données d'accès (email, statut, identifiants
   Stripe) après la fin de l'accès.
+- `[À VÉRIFIER]` : localisation du traitement et garanties de transfert hors UE pour Resend
+  (nouveau sous-traitant, envoi des emails de récupération).
 - `[À VÉRIFIER]` : base légale de la mesure d'audience (Vercel Analytics) ; région du projet
   Supabase ; région d'exécution des fonctions Vercel ; localisation du traitement et garanties
   de transfert hors UE pour Anthropic, Supabase, Vercel et Stripe ; conditions de rétention

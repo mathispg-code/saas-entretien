@@ -6,6 +6,8 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
+      // Pages personnelles : jamais indexees.
+      disallow: ["/mon-acces"],
     },
     sitemap: `${CANONICAL_ORIGIN}/sitemap.xml`,
   };

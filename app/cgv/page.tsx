@@ -233,10 +233,11 @@ export default function Cgv() {
               ).
             </p>
             <p className="mt-3">
-              <Mark
-                kind="À COMPLÉTER"
-                label="procédure de récupération de l'accès par email en cas de changement d'appareil (à mettre en place avant l'ouverture au public)"
-              />
+              En cas de changement d&apos;appareil ou de perte du cookie, l&apos;accès
+              peut être retrouvé depuis la page «&nbsp;Mon accès&nbsp;» : un lien à
+              usage unique, valable 15 minutes, est envoyé à l&apos;adresse email
+              saisie lors du paiement. L&apos;accès est alors activé sur le nouvel
+              appareil et désactivé sur le précédent (un seul appareil à la fois).
             </p>
           </section>
 
