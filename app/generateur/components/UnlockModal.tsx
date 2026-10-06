@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Check, Download, FileText, Lock, Sparkles, Unlock, X } from "lucide-react";
+import { CgvConsent } from "../../components/CgvConsent";
 import { SpinnerIcon } from "../../components/icons";
 import { startCheckout } from "../lib/checkout";
 import { GENERIC_ERROR_MESSAGE } from "../types";
@@ -57,6 +58,10 @@ export function UnlockModal({
   //   mois jusqu'a resiliation — Stripe Checkout en mode "subscription".
   const [subscribing, setSubscribing] = useState(false);
   const [selectingWeekly, setSelectingWeekly] = useState(false);
+  // Case CGV obligatoire (demande d'execution immediate + renonciation a la
+  // retractation) : les 3 boutons d'offre restent inactifs tant qu'elle n'est
+  // pas cochee, et elle est redemandee a chaque ouverture de la modale.
+  const [accepted, setAccepted] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -82,6 +87,7 @@ export function UnlockModal({
     if (open) {
       setLoading(false);
       setError(null);
+      setAccepted(false);
     }
   }, [open]);
 
@@ -175,7 +181,11 @@ export function UnlockModal({
             ))}
           </div>
 
-          <div className="mt-5 space-y-2">
+          <div className="mt-4">
+            <CgvConsent checked={accepted} onChange={setAccepted} variant="dark" />
+          </div>
+
+          <div className="mt-3 space-y-2">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -185,8 +195,8 @@ export function UnlockModal({
                 <button
                   type="button"
                   onClick={handleUnlock}
-                  disabled={!generationId || loading}
-                  className="flex flex-none items-center gap-1.5 rounded-lg border border-emerald-400/40 bg-transparent px-3.5 py-2 text-xs font-semibold text-emerald-300 transition hover:border-emerald-400 hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={!generationId || loading || !accepted}
+                  className="flex flex-none items-center gap-1.5 rounded-lg border border-emerald-400/40 bg-transparent px-3.5 py-2 text-xs font-semibold text-emerald-300 transition enabled:hover:border-emerald-400 enabled:hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {loading ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
                   {loading ? "Redirection…" : "Choisir"}
@@ -204,8 +214,10 @@ export function UnlockModal({
                 <button
                   type="button"
                   onClick={handleWeeklyClick}
-                  disabled={selectingWeekly}
-                  className="flex flex-none items-center gap-1.5 rounded-lg border border-emerald-400/40 bg-transparent px-3.5 py-2 text-xs font-semibold text-emerald-300 transition hover:border-emerald-400 hover:bg-emerald-500/10 disabled:cursor-default"
+                  disabled={selectingWeekly || !accepted}
+                  className={`flex flex-none items-center gap-1.5 rounded-lg border border-emerald-400/40 bg-transparent px-3.5 py-2 text-xs font-semibold text-emerald-300 transition enabled:hover:border-emerald-400 enabled:hover:bg-emerald-500/10 disabled:cursor-default ${
+                    !accepted && !selectingWeekly ? "cursor-not-allowed opacity-40" : ""
+                  }`}
                 >
                   {selectingWeekly ? (
                     <>
@@ -231,8 +243,10 @@ export function UnlockModal({
                 <button
                   type="button"
                   onClick={handleSubscribeClick}
-                  disabled={subscribing}
-                  className="flex flex-none items-center gap-1.5 rounded-lg bg-emerald-500 px-3.5 py-2 text-xs font-semibold text-navy-950 shadow-[0_0_20px_-8px_rgba(16,185,129,0.7)] transition hover:bg-emerald-400 disabled:cursor-default"
+                  disabled={subscribing || !accepted}
+                  className={`flex flex-none items-center gap-1.5 rounded-lg bg-emerald-500 px-3.5 py-2 text-xs font-semibold text-navy-950 shadow-[0_0_20px_-8px_rgba(16,185,129,0.7)] transition enabled:hover:bg-emerald-400 disabled:cursor-default ${
+                    !accepted && !subscribing ? "cursor-not-allowed opacity-50" : ""
+                  }`}
                 >
                   {subscribing ? (
                     <>

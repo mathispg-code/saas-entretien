@@ -23,6 +23,23 @@ simulation (log + retour visuel), en attendant leur vrai branchement Stripe :
 "Fiche unique" (3,99€, paiement unique) est déjà fonctionnel avec Stripe —
 ne pas y toucher en implémentant les deux offres ci-dessus.
 
+## CGV
+
+Page [app/cgv/page.tsx](app/cgv/page.tsx) en place. À faire :
+- Médiateur de la consommation : un marqueur jaune `[À COMPLÉTER]` reste à l'article 12
+  (nom, site web et adresse postale du médiateur choisi).
+- Les CGV ne couvrent que le pack à 3,99 € : les offres Pass hebdo et Illimité
+  (affichées sur /tarifs, encore en simulation) devront y être ajoutées avant
+  leur vrai branchement Stripe.
+- Faire relire la clause de rétractation (art. 6) par un juriste.
+- Politique de confidentialité à mettre à jour (voir point suivant).
+
+## Politique de confidentialité
+
+[app/confidentialite/page.tsx](app/confidentialite/page.tsx) est en décalage avec le
+site réel (Supabase, Stripe, Vercel Analytics, plusieurs clés localStorage) — détail
+dans l'audit fait lors de la création des CGV. À corriger.
+
 ## Mentions légales
 
 Page entièrement renseignée dans [app/mentions-legales/page.tsx](app/mentions-legales/page.tsx)

@@ -7,6 +7,9 @@ export function SiteFooter() {
         <Link href="/mentions-legales" className="hover:text-slate-600">
           Mentions légales
         </Link>
+        <Link href="/cgv" className="hover:text-slate-600">
+          CGV
+        </Link>
         <Link href="/confidentialite" className="hover:text-slate-600">
           Politique de confidentialité
         </Link>
