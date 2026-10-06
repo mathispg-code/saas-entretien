@@ -63,15 +63,24 @@ page : **ne pas déployer en production sans les avoir traités**.
   adresse postale, et le droit de le saisir gratuitement après démarche écrite préalable.
 - Date de mise en vigueur de la nouvelle version.
 
-## Enregistrer l'acceptation des CGV côté serveur
+## Consentement CGV / renonciation à la rétractation (en cours)
 
-Aujourd'hui la case CGV n'est qu'une protection d'interface : rien n'est enregistré et le
-serveur ne vérifie rien. Pistes à décider :
-- `consent_collection[terms_of_service]=required` + `custom_text[terms_of_service_acceptance]`
-  sur la session Checkout (consentement enregistré par Stripe : `consent.terms_of_service`) ;
-  nécessite l'URL des CGV dans les informations publiques du compte Stripe.
-- `metadata` de la session (version et date des CGV) + refus de `/api/checkout` si le client
-  n'envoie pas l'acceptation.
+Décision : case unique gérée par **Stripe Checkout** (`consent_collection[terms_of_service]` +
+`custom_text`), deux textes (Fiche unique + Pass hebdo d'un côté, Illimité de l'autre), preuve
+enregistrée par le webhook dans la table `consents` ([supabase/consents.sql](supabase/consents.sql) :
+date du paiement, version des CGV, texte exact, offre, session Stripe). Variante B (case sur le site +
+enregistrement serveur) si le test sur la vraie page de paiement Stripe montre que le texte
+personnalisé ou le lien vers les CGV ne s'affiche pas correctement.
+- Renseigner l'URL des CGV dans le Dashboard Stripe (public business details), test **et** live.
+- Faire valider les deux textes par un juriste (la perte du droit de rétractation d'un abonnement
+  mensuel n'est pas celle d'un pack ponctuel).
+- **BLOQUANT AVANT LE LIVE : email de confirmation du contrat** (support durable) envoyé via Resend
+  après le paiement : offre, prix, date, version des CGV, rappel de la case acceptée et de la
+  renonciation, lien vers les CGV, information sur le droit de rétractation. Le reçu Stripe n'en
+  tient pas lieu. À faire valider par un juriste.
+- Durée de conservation de la table `consents` (preuve) : à décider (`[À COMPLÉTER]` à ajouter dans
+  la politique de confidentialité). Aucun droit UPDATE/DELETE n'est accordé à `service_role` sur cette
+  table, volontairement.
 
 ## Stripe : configuration du compte et reçus
 
