@@ -7,14 +7,6 @@ export const metadata: Metadata = {
 
 const CONTACT_EMAIL = "contact@candiview.fr";
 
-function ToComplete({ label }: { label: string }) {
-  return (
-    <mark className="rounded bg-amber-100 px-1 font-semibold text-amber-800">
-      [À COMPLÉTER : {label}]
-    </mark>
-  );
-}
-
 function MailLink() {
   return (
     <a
@@ -205,23 +197,7 @@ export default function Cgv() {
 
           <section>
             <h2 className="text-base font-semibold text-navy-800">
-              12. Médiation de la consommation
-            </h2>
-            <p className="mt-2">
-              Après une démarche préalable écrite auprès de l&apos;éditeur (à
-              l&apos;adresse <MailLink />), le consommateur a le droit de saisir
-              gratuitement un médiateur de la consommation en vue de la
-              résolution amiable d&apos;un litige.
-            </p>
-            <p className="mt-3">
-              Médiateur :{" "}
-              <ToComplete label="médiateur de la consommation — nom, adresse du site web et adresse postale" />
-            </p>
-          </section>
-
-          <section>
-            <h2 className="text-base font-semibold text-navy-800">
-              13. Loi applicable et rétractation
+              12. Loi applicable et rétractation
             </h2>
             <p className="mt-2">
               Conformément à l&apos;article L221-28, 13° du Code de la
@@ -239,7 +215,7 @@ export default function Cgv() {
 
           <section>
             <h2 className="text-base font-semibold text-navy-800">
-              14. Dernière mise à jour
+              13. Dernière mise à jour
             </h2>
             <p className="mt-2">6 octobre 2026.</p>
           </section>

@@ -37,8 +37,12 @@ CGV ne les couvrent pas.
 ## CGV
 
 Page [app/cgv/page.tsx](app/cgv/page.tsx) en place. À faire :
-- Médiateur de la consommation : un marqueur jaune `[À COMPLÉTER]` reste à l'article 12
-  (nom, site web et adresse postale du médiateur choisi).
+- **Médiation de la consommation : article retiré pour l'instant** (l'ancien article 12, supprimé
+  le 6 octobre 2026 ; les articles suivants ont été renumérotés). À remettre avant l'ouverture
+  aux clients : un professionnel qui vend à des consommateurs doit en principe leur garantir
+  l'accès à un médiateur (à faire confirmer). Il faut choisir un médiateur, puis réintroduire
+  l'article avec son nom, son site web et son adresse postale, et le droit de le saisir
+  gratuitement après démarche écrite préalable auprès de l'éditeur.
 - Les CGV ne couvrent que le pack à 3,99 € : les offres Pass hebdo et Illimité devront y
   être ajoutées avant leur vrai branchement Stripe.
 - Faire relire la clause de rétractation (art. 6) par un juriste.
