@@ -130,6 +130,9 @@ export default function TarifsPage() {
                     <span className="text-4xl font-extrabold text-navy-900">{plan.price}</span>
                     <span className="text-sm text-slate-500">{plan.period}</span>
                   </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    TVA non applicable, art. 293 B du CGI
+                  </p>
 
                   <ul className="mt-6 flex-1 space-y-3">
                     {plan.features.map((feature) => (

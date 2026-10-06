@@ -190,7 +190,8 @@ export function UnlockModal({
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="font-semibold text-white">Fiche unique</p>
-                  <p className="text-xs text-slate-400">3,99 € · paiement unique</p>
+                  <p className="text-xs text-slate-400">3,99 € TTC · TVA non applicable</p>
+                  <p className="text-xs text-slate-400">Paiement unique</p>
                 </div>
                 <button
                   type="button"

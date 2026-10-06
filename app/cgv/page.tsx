@@ -101,10 +101,13 @@ export default function Cgv() {
           </section>
 
           <section>
-            <h2 className="text-base font-semibold text-navy-800">4. Prix et paiement</h2>
+            <h2 className="text-base font-semibold text-navy-800">4. Prix et TVA</h2>
             <p className="mt-2">
-              Le prix du pack est de 3,99 € TTC, TVA non applicable. Le
-              paiement est réalisé en ligne, de manière sécurisée, par
+              Le pack est vendu 3,99 €. Prix en euros, toutes taxes comprises.
+              TVA non applicable, article 293 B du CGI.
+            </p>
+            <p className="mt-3">
+              Paiement : il est réalisé en ligne, de manière sécurisée, par
               l&apos;intermédiaire de Stripe. L&apos;éditeur ne conserve aucune
               donnée de carte bancaire.
             </p>
@@ -218,9 +221,16 @@ export default function Cgv() {
 
           <section>
             <h2 className="text-base font-semibold text-navy-800">
-              13. Droit applicable et litiges
+              13. Loi applicable et rétractation
             </h2>
             <p className="mt-2">
+              Conformément à l&apos;article L221-28, 13° du Code de la
+              consommation, le droit de rétractation ne peut être exercé pour
+              les contenus numériques fournis sans support matériel dont
+              l&apos;exécution a commencé après accord préalable exprès du
+              consommateur et renoncement exprès à son droit de rétractation.
+            </p>
+            <p className="mt-3">
               Les présentes CGV sont soumises au droit français. En cas de
               litige, les tribunaux compétents sont déterminés selon les règles
               légales applicables.
