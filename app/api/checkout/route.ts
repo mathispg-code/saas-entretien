@@ -1,7 +1,7 @@
 import { GENERIC_ERROR_MESSAGE, json, optionsResponse } from "../../lib/api-response";
 import { getActiveAccess } from "../../lib/access-session";
+import { CGV_VERSION } from "../../lib/cgv";
 import {
-  CGV_VERSION,
   consentMessageForStripe,
   consentTextIdForPlan,
   type CheckoutPlanId,

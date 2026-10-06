@@ -12,9 +12,8 @@
  */
 export type CheckoutPlanId = "unique" | "hebdo" | "mensuel";
 
-// Version des CGV en vigueur, a faire evoluer a chaque modification des CGV
-// (enregistree avec chaque consentement et affichee en bas des CGV).
-export const CGV_VERSION = "2026-10-06";
+// La version des CGV en vigueur (CGV_VERSION) est definie par le registre
+// des versions figees : voir app/lib/cgv/index.ts.
 
 export const CONSENT_TEXT_IDS = ["ponctuel-v1", "abonnement-v1"] as const;
 export type ConsentTextId = (typeof CONSENT_TEXT_IDS)[number];
