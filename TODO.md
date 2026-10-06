@@ -25,10 +25,7 @@ ne pas y toucher en implémentant les deux offres ci-dessus.
 
 ## Mentions légales
 
-Page renseignée dans [app/mentions-legales/page.tsx](app/mentions-legales/page.tsx)
-(éditeur, adresse, SIREN/RCS, TVA, hébergeur Vercel, domaine IONOS, contact).
-Il reste des marqueurs jaunes `[À COMPLÉTER : ...]` visibles sur la page :
-- Prénom et nom de l'éditeur (à deux endroits : éditeur et directeur de la publication)
-- SIRET complet (seul le SIREN est renseigné)
+Page entièrement renseignée dans [app/mentions-legales/page.tsx](app/mentions-legales/page.tsx)
+(éditeur, SIREN/SIRET, RCS, adresse, TVA, hébergeur Vercel, domaine IONOS, contact).
 - À vérifier : un numéro de téléphone est en principe exigé pour un entrepreneur
   individuel (LCEN, art. 6) — non renseigné pour l'instant

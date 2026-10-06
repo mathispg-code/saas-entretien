@@ -7,14 +7,6 @@ export const metadata: Metadata = {
 
 const CONTACT_EMAIL = "contact@candiview.fr";
 
-function ToComplete({ label }: { label: string }) {
-  return (
-    <mark className="rounded bg-amber-100 px-1 font-semibold text-amber-800">
-      [À COMPLÉTER : {label}]
-    </mark>
-  );
-}
-
 export default function MentionsLegales() {
   return (
     <div className="min-h-screen bg-slate-50">
@@ -43,12 +35,11 @@ export default function MentionsLegales() {
             <h2 className="text-base font-semibold text-navy-800">Éditeur du site</h2>
             <p className="mt-2">
               Le site candiview.fr (nom commercial : CandiView) est édité par :<br />
-              <ToComplete label="prénom et nom" />, entrepreneur individuel
-              (micro-entrepreneur)
+              Mathis Pichon-Girodie, entrepreneur individuel (micro-entrepreneur)
               <br />
               SIREN : 109 791 426
               <br />
-              SIRET : <ToComplete label="SIRET complet" />
+              SIRET : 109 791 426 00017
               <br />
               Immatriculé au RCS de Paris, n° 109 791 426
               <br />
@@ -65,7 +56,7 @@ export default function MentionsLegales() {
               TVA non applicable, article 293 B du CGI.
             </p>
             <p className="mt-3">
-              Directeur de la publication : <ToComplete label="prénom et nom" />
+              Directeur de la publication : Mathis Pichon-Girodie
             </p>
           </section>
 
