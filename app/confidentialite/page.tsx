@@ -5,6 +5,35 @@ export const metadata: Metadata = {
   title: "Politique de confidentialité — CandiView",
 };
 
+const CONTACT_EMAIL = "contact@candiview.fr";
+
+function Mark({ kind, label }: { kind: "À COMPLÉTER" | "À VÉRIFIER"; label: string }) {
+  return (
+    <mark className="rounded bg-amber-100 px-1 font-semibold text-amber-800">
+      [{kind} : {label}]
+    </mark>
+  );
+}
+
+function MailLink() {
+  return (
+    <a
+      href={`mailto:${CONTACT_EMAIL}`}
+      className="font-medium text-emerald-600 underline hover:text-emerald-700"
+    >
+      {CONTACT_EMAIL}
+    </a>
+  );
+}
+
+function Key({ children }: { children: React.ReactNode }) {
+  return (
+    <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-navy-800">
+      {children}
+    </code>
+  );
+}
+
 export default function Confidentialite() {
   return (
     <div className="min-h-screen bg-slate-50">
@@ -31,27 +60,178 @@ export default function Confidentialite() {
         <div className="mt-8 space-y-8 rounded-2xl border border-slate-200 bg-white p-6 text-sm leading-relaxed text-slate-700 shadow-sm sm:p-8">
           <section>
             <h2 className="text-base font-semibold text-navy-800">
-              Aucun stockage de vos documents
+              Responsable du traitement
             </h2>
             <p className="mt-2">
-              La fiche de poste et le CV que tu fournis (texte collé ou
-              fichier PDF importé) ne sont jamais enregistrés, ni sur un
-              serveur, ni dans une base de données. Ils sont transmis
-              directement à l&apos;API de génération et traités uniquement en
-              mémoire, le temps de produire ta liste de questions. Une fois la
-              réponse renvoyée, ce contenu n&apos;est conservé nulle part.
+              Mathis Pichon-Girodie, entrepreneur individuel, nom commercial
+              CandiView.
+              <br />
+              173 rue de Courcelles, 75017 Paris
+              <br />
+              Email : <MailLink />
             </p>
           </section>
 
           <section>
+            <h2 className="text-base font-semibold text-navy-800">Données traitées</h2>
+            <p className="mt-2">
+              CandiView ne propose pas de compte utilisateur. Voici les données
+              traitées lorsque tu utilises le site :
+            </p>
+            <ul className="mt-3 list-disc space-y-2 pl-5">
+              <li>
+                <strong>La fiche de poste et le CV que tu fournis</strong> (texte
+                collé ou fichier PDF). Le CV peut contenir des données
+                personnelles. Ces documents sont envoyés à Anthropic pour générer
+                les questions. Leur contenu n&apos;est pas enregistré dans notre
+                base de données.
+              </li>
+              <li>
+                <strong>Les résultats générés sont, eux, enregistrés dans notre
+                base de données</strong> : analyse du poste, questions et
+                conseils, questions à poser au recruteur et, si tu as fourni un
+                CV, l&apos;analyse de ses points de vigilance (qui peut refléter
+                des informations de ton CV). Cet enregistrement permet de
+                réafficher tes résultats après un rechargement de page ou un
+                paiement.
+              </li>
+              <li>
+                <strong>Des informations techniques liées à chaque génération</strong>{" "}
+                : un identifiant de génération (identifiant aléatoire), la date de
+                création, le statut de paiement, l&apos;identifiant de la session
+                de paiement Stripe et une empreinte (hash) de la fiche de poste,
+                utilisée pour vérifier qu&apos;un paiement s&apos;applique bien à
+                la même fiche de poste. Cette empreinte ne contient pas le texte
+                de la fiche de poste.
+              </li>
+              <li>
+                <strong>Les données de paiement</strong> : elles sont saisies sur la
+                page de paiement de Stripe (adresse email et données de carte
+                bancaire). Nous ne voyons ni ne stockons les données de carte.
+                Nous n&apos;enregistrons pas ton adresse email dans notre base de
+                données ; elle reste consultable dans notre tableau de bord Stripe.
+              </li>
+              <li>
+                <strong>Des statistiques de fréquentation</strong> (voir plus bas,
+                « Mesure d&apos;audience »).
+              </li>
+            </ul>
+          </section>
+
+          <section>
             <h2 className="text-base font-semibold text-navy-800">
-              Aucun compte, aucune base de données
+              Finalités et bases légales
+            </h2>
+            <ul className="mt-2 list-disc space-y-2 pl-5">
+              <li>
+                <strong>Fournir le service</strong> (génération des questions,
+                réaffichage des résultats, déblocage des fonctionnalités payantes) :
+                exécution du contrat (voir les{" "}
+                <Link
+                  href="/cgv"
+                  className="font-medium text-emerald-600 underline hover:text-emerald-700"
+                >
+                  CGV
+                </Link>
+                ).
+              </li>
+              <li>
+                <strong>Traiter les paiements</strong> : exécution du contrat.
+              </li>
+              <li>
+                <strong>Mesure d&apos;audience</strong> : intérêt légitime de
+                connaître la fréquentation du site.{" "}
+                <Mark
+                  kind="À VÉRIFIER"
+                  label="base légale retenue pour la mesure d'audience"
+                />
+              </li>
+              <li>
+                <strong>Sécurité du service</strong> (par exemple, vérification du
+                paiement côté serveur) : intérêt légitime.
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-base font-semibold text-navy-800">
+              Destinataires et sous-traitants
             </h2>
             <p className="mt-2">
-              Ce site ne demande pas de créer de compte et ne dispose pas de
-              base de données utilisateurs. Aucune donnée personnelle
-              (identité, email, historique de générations) n&apos;est
-              collectée ou conservée par nos soins.
+              Nous faisons appel aux prestataires suivants. Pour chacun,
+              l&apos;indication de la localisation du traitement et des garanties
+              de transfert hors Union européenne reste à confirmer.
+            </p>
+            <ul className="mt-3 list-disc space-y-3 pl-5">
+              <li>
+                <strong>Anthropic</strong> — génération des questions. Reçoit la
+                fiche de poste et le CV que tu fournis.{" "}
+                <Mark
+                  kind="À VÉRIFIER"
+                  label="localisation du traitement, garanties de transfert hors UE, durée de conservation et usage des données par Anthropic pour l'API"
+                />
+              </li>
+              <li>
+                <strong>Supabase</strong> — base de données où sont enregistrés les
+                résultats et les informations techniques décrites ci-dessus.{" "}
+                <Mark
+                  kind="À VÉRIFIER"
+                  label="région du projet Supabase et garanties de transfert hors UE"
+                />
+              </li>
+              <li>
+                <strong>Vercel</strong> — hébergement du site et mesure d&apos;audience
+                (Vercel Web Analytics). Vercel Inc. est établie aux États-Unis
+                (adresse dans les{" "}
+                <Link
+                  href="/mentions-legales"
+                  className="font-medium text-emerald-600 underline hover:text-emerald-700"
+                >
+                  mentions légales
+                </Link>
+                ).{" "}
+                <Mark
+                  kind="À VÉRIFIER"
+                  label="région d'exécution des fonctions et garanties de transfert hors UE"
+                />
+              </li>
+              <li>
+                <strong>Stripe</strong> — paiement. Collecte les données de paiement
+                sur sa propre page ; nous ne voyons ni ne stockons les données de
+                carte bancaire.{" "}
+                <Mark
+                  kind="À VÉRIFIER"
+                  label="localisation du traitement et garanties de transfert hors UE"
+                />
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-base font-semibold text-navy-800">
+              Mesure d&apos;audience (Vercel Web Analytics)
+            </h2>
+            <p className="mt-2">
+              Le site utilise Vercel Web Analytics, chargé sur toutes les pages.
+              Selon la documentation de Vercel, il enregistre pour chaque page vue :
+              la date, l&apos;adresse de la page, la page de provenance
+              (« referrer »), la localisation approximative (pays, région, ville),
+              le système d&apos;exploitation, le navigateur et le type d&apos;appareil.
+              Les adresses des pages de CandiView ne contiennent aucune donnée
+              personnelle.
+            </p>
+            <p className="mt-3">
+              <strong>Cookies et identifiants :</strong> nous avons vérifié que le
+              composant utilisé (version 2.0.1) n&apos;écrit ni cookie, ni
+              localStorage, ni sessionStorage, ni base locale dans ton navigateur,
+              et qu&apos;aucun cookie n&apos;est déposé par les pages du site.
+              D&apos;après Vercel, les visiteurs sont distingués par une empreinte
+              calculée à partir de la requête, automatiquement supprimée au bout de
+              24 heures.
+            </p>
+            <p className="mt-3">
+              La page de paiement est hébergée par Stripe et relève de la politique
+              de Stripe, qui peut y utiliser ses propres cookies.
             </p>
           </section>
 
@@ -60,43 +240,114 @@ export default function Confidentialite() {
               Stockage local de ton navigateur
             </h2>
             <p className="mt-2">
-              Une seule information technique est conservée localement, dans
-              le stockage de ton navigateur (localStorage) : le fait que tu
-              aies déjà utilisé ta génération gratuite. Cette information ne
-              quitte jamais ton appareil, n&apos;est pas transmise à nos
-              serveurs, et ne contient aucune donnée personnelle. Tu peux la
-              supprimer à tout moment en vidant les données de ton navigateur
-              pour ce site.
+              Le site enregistre trois informations dans le stockage local
+              (localStorage) de ton navigateur. Ce ne sont pas des cookies.
+            </p>
+            <ul className="mt-3 list-disc space-y-2 pl-5">
+              <li>
+                <Key>entretien-ia:free-trial-used</Key> : indique que tu as déjà
+                utilisé ta génération gratuite (une par navigateur). Elle reste dans
+                ton navigateur.
+              </li>
+              <li>
+                <Key>entretien-ia:last-generation-id</Key> : l&apos;identifiant de ta
+                dernière génération. Il sert à réafficher tes résultats et à relier
+                ton paiement à la bonne génération. Cet identifiant est envoyé à nos
+                serveurs lorsque tu consultes tes résultats, que tu paies ou que tu
+                utilises les fonctionnalités débloquées.
+              </li>
+              <li>
+                <Key>entretien-ia:unlock-modal-seen:&lt;identifiant&gt;</Key> :
+                indique que la fenêtre de proposition d&apos;achat a déjà été
+                affichée pour cette génération, pour ne pas la montrer deux fois.
+                Elle reste dans ton navigateur.
+              </li>
+            </ul>
+            <p className="mt-3">
+              Comme il n&apos;y a pas de compte, ton accès payant est lié à ce
+              stockage, donc à l&apos;appareil et au navigateur utilisés lors de
+              l&apos;achat. Vider les données du navigateur, changer d&apos;appareil
+              ou utiliser la navigation privée peut te faire perdre l&apos;accès
+              (voir l&apos;article 5 des{" "}
+              <Link
+                href="/cgv"
+                className="font-medium text-emerald-600 underline hover:text-emerald-700"
+              >
+                CGV
+              </Link>
+              ). Tu peux supprimer ces informations à tout moment en vidant les
+              données du site dans ton navigateur.
             </p>
           </section>
 
           <section>
             <h2 className="text-base font-semibold text-navy-800">
-              Partage avec des tiers
+              Durée de conservation
             </h2>
+            <ul className="mt-2 list-disc space-y-2 pl-5">
+              <li>
+                <strong>Résultats générés et informations techniques</strong> (base
+                de données) :{" "}
+                <Mark kind="À COMPLÉTER" label="durée à décider" />
+              </li>
+              <li>
+                <strong>Stockage local du navigateur :</strong> jusqu&apos;à ce que tu
+                le supprimes.
+              </li>
+              <li>
+                <strong>Données de paiement :</strong> conservées par Stripe selon
+                ses propres règles et les obligations légales applicables.
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-base font-semibold text-navy-800">Tes droits</h2>
             <p className="mt-2">
-              Le contenu que tu soumets est transmis uniquement à
-              l&apos;API d&apos;Anthropic (Claude), nécessaire pour générer
-              les questions d&apos;entretien. Aucune autre transmission à un
-              tiers n&apos;est effectuée : pas de revente de données, pas de
-              publicité, pas d&apos;outils de suivi ou d&apos;analytics.
+              Tu disposes d&apos;un droit d&apos;accès, de rectification,
+              d&apos;effacement, d&apos;opposition, de limitation du traitement et de
+              portabilité de tes données. Pour les exercer, écris-nous à{" "}
+              <MailLink />.
+            </p>
+            <p className="mt-3">
+              Comme il n&apos;existe pas de compte, nous ne pouvons retrouver tes
+              données qu&apos;à partir de l&apos;identifiant de génération. Pour
+              demander l&apos;effacement, communique-nous cet identifiant : il figure
+              dans le stockage local de ton navigateur (clé{" "}
+              <Key>entretien-ia:last-generation-id</Key>). Si tu as payé, il peut
+              aussi être retrouvé à partir de ton paiement Stripe.
+            </p>
+            <p className="mt-3">
+              Tu peux également introduire une réclamation auprès de la CNIL :{" "}
+              <a
+                href="https://www.cnil.fr"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-emerald-600 underline hover:text-emerald-700"
+              >
+                cnil.fr
+              </a>
+              .
             </p>
           </section>
 
           <section>
-            <h2 className="text-base font-semibold text-navy-800">Contact</h2>
+            <h2 className="text-base font-semibold text-navy-800">
+              Une recommandation
+            </h2>
             <p className="mt-2">
-              Pour toute question relative à cette politique de
-              confidentialité, tu peux nous contacter à l&apos;adresse
-              indiquée dans les{" "}
-              <Link
-                href="/mentions-legales"
-                className="font-medium text-emerald-600 underline hover:text-emerald-700"
-              >
-                mentions légales
-              </Link>
-              .
+              N&apos;inclus pas de données sensibles dans ton CV ou ta fiche de
+              poste (santé, opinions politiques ou religieuses, origine, vie
+              sexuelle, etc.) : elles ne sont pas nécessaires pour générer des
+              questions d&apos;entretien.
             </p>
+          </section>
+
+          <section>
+            <h2 className="text-base font-semibold text-navy-800">
+              Dernière mise à jour
+            </h2>
+            <p className="mt-2">6 octobre 2026.</p>
           </section>
         </div>
       </main>

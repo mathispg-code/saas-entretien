@@ -5,6 +5,7 @@ const BASE_URL = "https://candiview.fr";
 const ROUTES = [
   { path: "", changeFrequency: "weekly" as const, priority: 1 },
   { path: "/generateur", changeFrequency: "weekly" as const, priority: 0.9 },
+  { path: "/tarifs", changeFrequency: "monthly" as const, priority: 0.7 },
   { path: "/mentions-legales", changeFrequency: "yearly" as const, priority: 0.3 },
   { path: "/cgv", changeFrequency: "yearly" as const, priority: 0.3 },
   { path: "/confidentialite", changeFrequency: "yearly" as const, priority: 0.3 },

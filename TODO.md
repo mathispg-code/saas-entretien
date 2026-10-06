@@ -23,22 +23,62 @@ simulation (log + retour visuel), en attendant leur vrai branchement Stripe :
 "Fiche unique" (3,99€, paiement unique) est déjà fonctionnel avec Stripe —
 ne pas y toucher en implémentant les deux offres ci-dessus.
 
+## Offres simulées encore visibles (à décider)
+
+`/tarifs` ne montre plus que la Fiche unique (drapeau `SHOW_SIMULATED_PLANS = false`
+dans [app/tarifs/page.tsx](app/tarifs/page.tsx), le code des deux autres plans est
+conservé). **Mais deux autres endroits affichent encore Pass hebdo / Illimité** :
+- la modale [UnlockModal.tsx](app/generateur/components/UnlockModal.tsx) (3 offres, boutons simulés) ;
+- le bloc "Tu as testé gratuitement CandiView" de [app/generateur/page.tsx](app/generateur/page.tsx)
+  (ligne "Illimité 9,99 € / mois").
+À masquer de la même façon tant que Stripe n'est pas branché sur ces offres et que les
+CGV ne les couvrent pas.
+
 ## CGV
 
 Page [app/cgv/page.tsx](app/cgv/page.tsx) en place. À faire :
 - Médiateur de la consommation : un marqueur jaune `[À COMPLÉTER]` reste à l'article 12
   (nom, site web et adresse postale du médiateur choisi).
-- Les CGV ne couvrent que le pack à 3,99 € : les offres Pass hebdo et Illimité
-  (affichées sur /tarifs, encore en simulation) devront y être ajoutées avant
-  leur vrai branchement Stripe.
+- Les CGV ne couvrent que le pack à 3,99 € : les offres Pass hebdo et Illimité devront y
+  être ajoutées avant leur vrai branchement Stripe.
 - Faire relire la clause de rétractation (art. 6) par un juriste.
-- Politique de confidentialité à mettre à jour (voir point suivant).
+
+## Enregistrer l'acceptation des CGV côté serveur
+
+Aujourd'hui la case CGV n'est qu'une protection d'interface : rien n'est enregistré et le
+serveur ne vérifie rien. Pistes à décider (détail dans la discussion du 6 octobre 2026) :
+- `consent_collection[terms_of_service]=required` + `custom_text[terms_of_service_acceptance]`
+  sur la session Checkout (consentement enregistré par Stripe : `consent.terms_of_service`) ;
+  nécessite l'URL des CGV dans les informations publiques du compte Stripe.
+- `metadata` de la session (version et date des CGV) + refus de `/api/checkout` si le client
+  n'envoie pas l'acceptation.
+
+## Stripe : configuration du compte et reçus
+
+- Informations publiques du compte (test **et** live) : l'email de support est vide ; renseigner
+  email de support, adresse, URL de la politique de confidentialité et URL des CGV, et un nom
+  d'entreprise correct (le nom actuel est "environnement de test CandiView").
+- Dashboard > Paramètres > Entreprise > E-mails aux clients : activer "Paiements réussis" (en
+  mode **live** ; en test, Stripe n'envoie rien automatiquement, seulement des reçus manuels).
+- Décider comment envoyer une vraie confirmation de contrat (CGV + renonciation à la
+  rétractation) : le reçu Stripe n'en tient pas lieu à lui seul. À faire valider par un juriste.
 
 ## Politique de confidentialité
 
-[app/confidentialite/page.tsx](app/confidentialite/page.tsx) est en décalage avec le
-site réel (Supabase, Stripe, Vercel Analytics, plusieurs clés localStorage) — détail
-dans l'audit fait lors de la création des CGV. À corriger.
+Page réécrite d'après le code réel ([app/confidentialite/page.tsx](app/confidentialite/page.tsx)).
+Marqueurs jaunes à lever :
+- `[À COMPLÉTER : durée à décider]` : durée de conservation des générations en base.
+- `[À VÉRIFIER]` : base légale de la mesure d'audience (Vercel Analytics) ; région du projet
+  Supabase ; région d'exécution des fonctions Vercel ; localisation du traitement et garanties
+  de transfert hors UE pour Anthropic, Supabase, Vercel et Stripe ; conditions de rétention
+  et d'usage des données par Anthropic pour l'API.
+
+## Suppression automatique des anciennes générations (non implémentée)
+
+Une fois la durée de conservation décidée, supprimer automatiquement les lignes anciennes de
+la table `generations` (Supabase). À noter : le rôle `service_role` n'a pas le droit DELETE
+sur cette table (voir [supabase/schema.sql](supabase/schema.sql)), il faudra l'accorder ou
+passer par une fonction/cron côté Supabase.
 
 ## Mentions légales
 

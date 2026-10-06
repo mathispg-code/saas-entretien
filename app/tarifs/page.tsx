@@ -62,6 +62,16 @@ const PLANS = [
   },
 ];
 
+// Pass hebdo et Illimite sont encore simules (pas de Stripe, pas couverts par
+// les CGV — voir TODO.md) : masques tant que ce drapeau est a false. Passer
+// a true les reaffiche tels quels, sans autre modification.
+const SHOW_SIMULATED_PLANS = false;
+
+const VISIBLE_PLANS = PLANS.filter(
+  (plan) => SHOW_SIMULATED_PLANS || plan.id === "fiche-unique",
+);
+const SINGLE_PLAN = VISIBLE_PLANS.length === 1;
+
 export default function TarifsPage() {
   return (
     <div className="min-h-screen bg-slate-50">
@@ -70,16 +80,35 @@ export default function TarifsPage() {
       <section className="px-4 pb-20 pt-14 sm:pt-20">
         <div className="mx-auto max-w-6xl">
           <RevealOnScroll className="text-center">
-            <h1 className="text-2xl font-extrabold tracking-tight text-navy-900 sm:text-3xl">
-              Choisis la formule qui te <span className="text-emerald-500">correspond</span>
-            </h1>
-            <p className="mx-auto mt-3 max-w-xl text-sm text-slate-600 sm:text-base">
-              Une candidature ponctuelle ou une recherche active : à toi de choisir le rythme.
-            </p>
+            {SINGLE_PLAN ? (
+              <>
+                <h1 className="text-2xl font-extrabold tracking-tight text-navy-900 sm:text-3xl">
+                  Un pack par <span className="text-emerald-500">fiche de poste</span>
+                </h1>
+                <p className="mx-auto mt-3 max-w-xl text-sm text-slate-600 sm:text-base">
+                  Paiement unique, sans abonnement ni compte à créer.
+                </p>
+              </>
+            ) : (
+              <>
+                <h1 className="text-2xl font-extrabold tracking-tight text-navy-900 sm:text-3xl">
+                  Choisis la formule qui te <span className="text-emerald-500">correspond</span>
+                </h1>
+                <p className="mx-auto mt-3 max-w-xl text-sm text-slate-600 sm:text-base">
+                  Une candidature ponctuelle ou une recherche active : à toi de choisir le rythme.
+                </p>
+              </>
+            )}
           </RevealOnScroll>
 
-          <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-3">
-            {PLANS.map((plan, i) => (
+          <div
+            className={
+              SINGLE_PLAN
+                ? "mx-auto mt-12 max-w-md"
+                : "mt-12 grid grid-cols-1 gap-6 lg:grid-cols-3"
+            }
+          >
+            {VISIBLE_PLANS.map((plan, i) => (
               <RevealOnScroll key={plan.id} delayMs={i * 100}>
                 <div
                   className={`relative mx-auto flex h-full max-w-md flex-col rounded-3xl border bg-white p-8 shadow-sm lg:max-w-none ${
