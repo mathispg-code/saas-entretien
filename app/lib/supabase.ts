@@ -592,3 +592,158 @@ export async function insertConsent(consent: NewConsent): Promise<boolean> {
   }
   return true;
 }
+
+export type StoredConsent = {
+  id: string;
+  plan: "unique" | "hebdo" | "mensuel";
+  cgv_version: string;
+  consent_text_id: string;
+  consent_text: string;
+  consented_at: string;
+};
+
+/** Preuve de consentement enregistree pour une session Checkout (ou null). */
+export async function findConsentBySessionId(sessionId: string): Promise<StoredConsent | null> {
+  if (!supabase) {
+    throw new Error(
+      "Supabase non configuré (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY manquants).",
+    );
+  }
+  const { data, error } = await supabase
+    .from("consents")
+    .select("id, plan, cgv_version, consent_text_id, consent_text, consented_at")
+    .eq("stripe_checkout_session_id", sessionId)
+    .maybeSingle();
+  if (error) {
+    console.error("Échec de la lecture dans la table consents:", error);
+    throw new Error("Lecture Supabase impossible.");
+  }
+  return (data as StoredConsent | null) ?? null;
+}
+
+export type ConfirmationStatus =
+  | "pending"
+  | "retry"
+  | "sent"
+  | "failed_permanent"
+  | "skipped_no_email";
+
+// Un envoi "pending" depuis plus longtemps est considere comme interrompu
+// (fonction arretee en cours d'envoi) et peut etre repris. La cle d'idempotence
+// Resend evite alors tout doublon (pendant 24 h).
+const STALE_PENDING_MS = 10 * 60 * 1000;
+
+/**
+ * Prend, de facon atomique, la main sur l'envoi de l'email de confirmation
+ * d'une session :
+ * - "claimed" : cet appel doit envoyer l'email ;
+ * - "done"    : deja traite de facon definitive (envoye, refuse, sans adresse) ;
+ * - "busy"    : un autre appel est en train d'envoyer (reessayer plus tard) ;
+ * - "error"   : base de donnees injoignable.
+ * Une ligne par session (contrainte d'unicite) ; la reprise d'une ligne "retry"
+ * ou "pending" perimee utilise le nombre de tentatives comme verrou optimiste :
+ * un seul des appels concurrents peut la gagner.
+ */
+export async function claimContractConfirmation(
+  sessionId: string,
+): Promise<{ state: "claimed" | "done" | "busy" | "error"; attempts: number }> {
+  if (!supabase) {
+    console.error("Supabase non configuré : confirmation de commande non verrouillée.");
+    return { state: "error", attempts: 0 };
+  }
+  const now = new Date().toISOString();
+
+  const inserted = await supabase
+    .from("contract_confirmations")
+    .insert({
+      stripe_checkout_session_id: sessionId,
+      status: "pending",
+      attempts: 1,
+      claimed_at: now,
+    })
+    .select("id");
+  if (!inserted.error) return { state: "claimed", attempts: 1 };
+  if (inserted.error.code !== "23505") {
+    console.error("Échec du verrouillage d'une confirmation de commande:", inserted.error);
+    return { state: "error", attempts: 0 };
+  }
+
+  const { data: row, error } = await supabase
+    .from("contract_confirmations")
+    .select("status, attempts, claimed_at")
+    .eq("stripe_checkout_session_id", sessionId)
+    .maybeSingle();
+  if (error || !row) {
+    console.error("Échec de la lecture d'une confirmation de commande:", error);
+    return { state: "error", attempts: 0 };
+  }
+
+  const status = row.status as ConfirmationStatus;
+  if (status === "sent" || status === "failed_permanent" || status === "skipped_no_email") {
+    return { state: "done", attempts: row.attempts as number };
+  }
+  const claimedAt = row.claimed_at ? new Date(row.claimed_at as string).getTime() : 0;
+  const stalePending = status === "pending" && Date.now() - claimedAt > STALE_PENDING_MS;
+  if (status !== "retry" && !stalePending) {
+    return { state: "busy", attempts: row.attempts as number };
+  }
+
+  const attempts = (row.attempts as number) + 1;
+  const reclaimed = await supabase
+    .from("contract_confirmations")
+    .update({ status: "pending", attempts, claimed_at: now, updated_at: now })
+    .eq("stripe_checkout_session_id", sessionId)
+    .eq("attempts", row.attempts as number)
+    .in("status", ["retry", "pending"])
+    .select("id");
+  if (reclaimed.error) {
+    console.error("Échec de la reprise d'une confirmation de commande:", reclaimed.error);
+    return { state: "error", attempts: 0 };
+  }
+  return (reclaimed.data?.length ?? 0) > 0
+    ? { state: "claimed", attempts }
+    : { state: "busy", attempts };
+}
+
+/** Enregistre l'issue d'une tentative d'envoi (statut, preuve de ce qui a ete envoye). */
+export async function finishContractConfirmation(
+  sessionId: string,
+  fields: {
+    status: Exclude<ConfirmationStatus, "pending">;
+    lastError?: string | null;
+    resendEmailId?: string | null;
+    templateId?: string | null;
+    cgvVersion?: string | null;
+    cgvPdfSha256?: string | null;
+    bodyText?: string | null;
+    consentId?: string | null;
+  },
+): Promise<boolean> {
+  if (!supabase) {
+    console.error("Supabase non configuré : issue de la confirmation non enregistrée.");
+    return false;
+  }
+  const now = new Date().toISOString();
+  const update: Record<string, unknown> = {
+    status: fields.status,
+    last_error: fields.lastError ?? null,
+    updated_at: now,
+  };
+  if (fields.status === "sent") update.sent_at = now;
+  if (fields.resendEmailId !== undefined) update.resend_email_id = fields.resendEmailId;
+  if (fields.templateId !== undefined) update.template_id = fields.templateId;
+  if (fields.cgvVersion !== undefined) update.cgv_version = fields.cgvVersion;
+  if (fields.cgvPdfSha256 !== undefined) update.cgv_pdf_sha256 = fields.cgvPdfSha256;
+  if (fields.bodyText !== undefined) update.body_text = fields.bodyText;
+  if (fields.consentId !== undefined) update.consent_id = fields.consentId;
+
+  const { error } = await supabase
+    .from("contract_confirmations")
+    .update(update)
+    .eq("stripe_checkout_session_id", sessionId);
+  if (error) {
+    console.error("Échec de l'enregistrement de l'issue d'une confirmation:", error);
+    return false;
+  }
+  return true;
+}

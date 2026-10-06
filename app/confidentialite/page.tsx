@@ -133,6 +133,13 @@ export default function Confidentialite() {
                 paiement et l&apos;adresse email saisie à ce moment.
               </li>
               <li>
+                <strong>L&apos;email de confirmation de ta commande</strong> : après chaque
+                paiement, nous t&apos;envoyons un email récapitulatif (offre, prix, date,
+                rappel de ton accord, droit de rétractation) avec les CGV en vigueur en
+                pièce jointe. Nous conservons le statut de l&apos;envoi, le texte exact
+                envoyé, la version des CGV jointe et l&apos;empreinte du fichier joint.
+              </li>
+              <li>
                 <strong>Les demandes de récupération d&apos;accès</strong> : lorsque tu
                 demandes à retrouver ton accès par email, l&apos;adresse saisie et ton
                 adresse IP ne sont conservées que sous forme d&apos;empreinte
@@ -248,11 +255,12 @@ export default function Confidentialite() {
                 />
               </li>
               <li>
-                <strong>Resend</strong> — envoi de l&apos;email contenant ton lien de
-                récupération d&apos;accès, depuis une adresse du sous-domaine
-                send.candiview.fr. Reçoit ton adresse email et le contenu du message,
-                uniquement lorsque tu demandes ce lien et qu&apos;un accès valide existe
-                pour cette adresse.{" "}
+                <strong>Resend</strong> — envoi de nos emails, depuis une adresse du
+                sous-domaine send.candiview.fr : l&apos;email de confirmation de commande
+                (avec les CGV en pièce jointe) après chaque paiement, et l&apos;email de
+                récupération d&apos;accès lorsque tu en fais la demande et qu&apos;un accès
+                valide existe pour cette adresse. Reçoit ton adresse email et le contenu du
+                message.{" "}
                 <Mark
                   kind="À VÉRIFIER"
                   label="localisation du traitement (région choisie à la création du compte) et garanties de transfert hors UE"
@@ -404,6 +412,14 @@ export default function Confidentialite() {
                 <strong>Preuve du consentement avant paiement</strong> (date du
                 paiement, version des CGV, texte de la case, email) :{" "}
                 <Mark kind="À COMPLÉTER" label="durée de conservation de la preuve" />
+              </li>
+              <li>
+                <strong>Confirmation de commande</strong> (statut d&apos;envoi, texte envoyé,
+                version des CGV, empreinte du fichier joint) :{" "}
+                <Mark
+                  kind="À COMPLÉTER"
+                  label="durée de conservation, à décider avec celle de la preuve du consentement"
+                />
               </li>
               <li>
                 <strong>Données d&apos;accès (Pass hebdomadaire / Illimité)</strong>{" "}

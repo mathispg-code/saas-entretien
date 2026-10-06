@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 import { HEBDO_DURATION_MS } from "../../../lib/access";
 import { consentMessageForStripe, isConsentTextId } from "../../../lib/consent";
+import { sendContractConfirmation } from "../../../lib/contract-confirmation";
 import { SITE_URL } from "../../../lib/site-url";
 import { stripe } from "../../../lib/stripe";
 import {
@@ -13,6 +14,8 @@ import {
 } from "../../../lib/supabase";
 
 export const runtime = "nodejs";
+// Livraison + preuve + email de confirmation avec PDF joint : marge confortable.
+export const maxDuration = 30;
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -104,9 +107,10 @@ function subscriptionFields(subscription: Stripe.Subscription) {
   };
 }
 
-// Paiement abouti : on livre l'achat (generation payee ou acces), puis on
-// enregistre la preuve du consentement. Les deux etapes sont idempotentes : en
-// cas d'echec de l'une, la reponse 500 fait rejouer l'evenement par Stripe.
+// Paiement abouti : on livre l'achat (generation payee ou acces), on enregistre
+// la preuve du consentement, puis on envoie l'email de confirmation du contrat
+// (une seule fois par session). Les trois etapes sont idempotentes : en cas
+// d'echec temporaire de l'une, la reponse 500 fait rejouer l'evenement par Stripe.
 async function handleCheckoutCompleted(
   session: Stripe.Checkout.Session,
   eventCreated: number,
@@ -114,7 +118,8 @@ async function handleCheckoutCompleted(
   const outcome = await grantPurchase(session, eventCreated);
   if (outcome === "failed") return false;
   if (outcome === "skipped") return true;
-  return recordConsent(session, eventCreated);
+  if (!(await recordConsent(session, eventCreated))) return false;
+  return sendContractConfirmation(session);
 }
 
 async function recordConsent(

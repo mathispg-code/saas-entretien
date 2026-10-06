@@ -94,7 +94,12 @@ pour `service_role` sur cette table, volontairement.
 Quota Resend partagé : le plafond global des emails de récupération est abaissé à **50 par jour**
 (variable `RECOVERY_GLOBAL_DAILY_LIMIT`) pour ne jamais retarder les confirmations de commande.
 Plan gratuit Resend : 100 emails par jour (à vérifier) ; passer à un plan payant avant un volume réel.
-- **Email de confirmation du contrat** (support durable), envoyé via Resend depuis le webhook après la
+- **Email de confirmation du contrat : code en place et testé (mode test)** — reste à faire valider
+  par un juriste (voir ci-dessous) et à lever les marqueurs avant le live : en mode réel
+  (`livemode`), l'email n'est **jamais envoyé** tant qu'il contient un marqueur `[À COMPLÉTER : ...]` /
+  `[À FAIRE VALIDER : ...]` (statut `failed_permanent`, raison `draft_markers`, l'achat est livré).
+  Contenu défini dans [app/lib/contract-email.ts](app/lib/contract-email.ts), envoi dans
+  [app/lib/contract-confirmation.ts](app/lib/contract-confirmation.ts). Rappel de la conception : envoyé via Resend depuis le webhook après la
   livraison et l'enregistrement du consentement ; une seule fois par session (table
   `contract_confirmations` : [supabase/contract-confirmations.sql](supabase/contract-confirmations.sql),
   clé d'idempotence Resend `contract-confirmation/<session>`). Contenu : éditeur, récapitulatif (offre,
@@ -116,7 +121,12 @@ Plan gratuit Resend : 100 emails par jour (à vérifier) ; passer à un plan pay
 - **Durée de conservation de `contract_confirmations`** (statut d'envoi, texte envoyé, empreinte du PDF
   joint) : à décider, avec celle de `consents`, et à inscrire dans la politique de confidentialité
   (`[À COMPLÉTER]`).
-- **CGV versionnées** : le PDF joint doit porter la version des CGV **de l'achat** (`cgvVersion`
+- **CGV versionnées (fait)** : chaque version est un fichier figé dans [app/lib/cgv/versions](app/lib/cgv/versions)
+  avec son empreinte épinglée dans [app/lib/cgv/index.ts](app/lib/cgv/index.ts) ; pour publier de nouvelles
+  CGV : nouveau fichier de version + nouvelle entrée en **dernière** position du registre (elle devient
+  `CGV_VERSION`), sans jamais modifier une version déjà utilisée (l'email n'est pas envoyé si l'empreinte ne
+  correspond plus). Avant le live : publier une version sans marqueurs (la version actuelle
+  `2026-10-06` est un brouillon). Le PDF joint doit porter la version des CGV **de l'achat** (`cgvVersion`
   enregistrée dans la session Stripe et dans `consents`). Les versions publiées sont donc immuables
   dans le code (une modification = nouvelle version et nouvelle valeur de `CGV_VERSION`).
 

@@ -97,7 +97,7 @@ async function sendRecoveryLink(email: string, attemptId: string): Promise<void>
     // lors de l'ouverture du lien, ni ecrit dans les journaux, ni transmis
     // dans l'en-tete Referer. Il n'est consomme que par un POST explicite.
     const link = `${SITE_URL}/mon-acces/verifier#t=${token}`;
-    if (await sendEmail(buildRecoveryEmail(email, link))) {
+    if ((await sendEmail(buildRecoveryEmail(email, link))).ok) {
       await markRecoveryEmailSent(attemptId);
     }
   } catch (error) {
