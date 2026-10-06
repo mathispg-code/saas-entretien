@@ -10,6 +10,9 @@ export function SiteFooter() {
         <Link href="/confidentialite" className="hover:text-slate-600">
           Politique de confidentialité
         </Link>
+        <a href="mailto:contact@candiview.fr" className="hover:text-slate-600">
+          Contact
+        </a>
       </div>
     </footer>
   );
