@@ -20,14 +20,16 @@ function envInt(name: string, fallback: number): number {
 }
 
 // Par adresse : 1 par minute, 3 par heure, 5 par jour. Par IP : 10 par heure.
-// Plafond global : 80 emails REELLEMENT envoyes par jour (les demandes pour
-// une adresse inconnue n'en consomment pas).
+// Plafond global : 50 emails REELLEMENT envoyes par jour (les demandes pour
+// une adresse inconnue n'en consomment pas). Volontairement bas : le quota
+// d'envoi Resend est partage avec les emails de confirmation de commande,
+// obligatoires, qui ne doivent jamais etre retardes par des recuperations.
 export const RECOVERY_LIMITS = {
   emailPerMinute: 1,
   emailPerHour: 3,
   emailPerDay: 5,
   ipPerHour: envInt("RECOVERY_IP_HOURLY_LIMIT", 10),
-  globalSentPerDay: envInt("RECOVERY_GLOBAL_DAILY_LIMIT", 80),
+  globalSentPerDay: envInt("RECOVERY_GLOBAL_DAILY_LIMIT", 50),
 };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;

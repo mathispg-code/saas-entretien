@@ -77,18 +77,48 @@ pour `service_role` sur cette table, volontairement.
 - Faire valider les deux textes par un juriste (la perte du droit de rétractation d'un abonnement
   mensuel n'est pas celle d'un pack ponctuel). Tout changement de texte = nouvel identifiant dans
   `consent.ts` et nouvelle valeur de `CGV_VERSION` si les CGV changent.
-- **BLOQUANT AVANT LE LIVE : email de confirmation du contrat** (support durable) envoyé via Resend
-  après le paiement : offre, prix, date, version des CGV, rappel de la case acceptée et de la
-  renonciation, lien vers les CGV, information sur le droit de rétractation. Le reçu Stripe n'en
-  tient pas lieu. À faire valider par un juriste.
-- **Moyens de paiement** : la page Stripe propose aussi Klarna, Bancontact, Amazon Pay, Satispay, etc.
-  (réglage du Dashboard). Le webhook ne gère que `checkout.session.completed` : un moyen de paiement
-  à confirmation différée (virement, prélèvement) ne serait pas livré correctement (Pass hebdo ignoré si
-  non payé, Fiche unique marquée payée sans vérifier `payment_status`). Décider : limiter à la carte
-  (Dashboard > Moyens de paiement, ou `payment_method_types`) ou gérer `async_payment_succeeded`.
+- **BLOQUANT AVANT LE LIVE** : emails obligatoires, voir la section « Emails et informations
+  obligatoires avant le live » ci-dessous.
+- **Moyens de paiement : décision = carte uniquement** (réglage Dashboard > Moyens de paiement, à refaire
+  en mode **live**, les réglages sont séparés par mode). Le webhook ne gère que
+  `checkout.session.completed` : un moyen de paiement à confirmation différée (virement, prélèvement)
+  ne serait pas livré correctement (Pass hebdo ignoré si non payé, Fiche unique marquée payée sans
+  vérifier `payment_status`). Les paiements différés (`async_payment_succeeded`) ne sont donc volontairement
+  pas gérés : ne pas activer d'autre moyen de paiement sans l'implémenter.
 - Durée de conservation de la table `consents` (preuve) : à décider (`[À COMPLÉTER]` dans la
   politique de confidentialité).
 - Lignes de test dans `consents` : à supprimer depuis le SQL Editor (aucun DELETE accordé à l'application).
+
+## Emails et informations obligatoires avant le live (BLOQUANTS)
+
+Quota Resend partagé : le plafond global des emails de récupération est abaissé à **50 par jour**
+(variable `RECOVERY_GLOBAL_DAILY_LIMIT`) pour ne jamais retarder les confirmations de commande.
+Plan gratuit Resend : 100 emails par jour (à vérifier) ; passer à un plan payant avant un volume réel.
+- **Email de confirmation du contrat** (support durable), envoyé via Resend depuis le webhook après la
+  livraison et l'enregistrement du consentement ; une seule fois par session (table
+  `contract_confirmations` : [supabase/contract-confirmations.sql](supabase/contract-confirmations.sql),
+  clé d'idempotence Resend `contract-confirmation/<session>`). Contenu : éditeur, récapitulatif (offre,
+  prix, TVA non applicable, date et heure, référence), ce que l'offre donne, rappel du consentement
+  (texte exact, date, version des CGV), droit de rétractation, **CGV de la version de l'achat en PDF joint**
+  (pas un simple lien), contact. Vouvoiement pour les blocs juridiques. Le texte exact envoyé est
+  conservé en base comme preuve. Le reçu Stripe n'en tient pas lieu. À faire valider par un juriste :
+  contenu minimal, support durable des CGV, formulaire type de rétractation (texte officiel à fournir,
+  `[À COMPLÉTER]` en attendant), moment d'envoi par rapport au début de l'exécution, formulations
+  Fiche unique / Pass / abonnement.
+- **Email de confirmation de résiliation** d'un abonnement (au moment de la résiliation en ligne) : à
+  concevoir, à faire valider (obligation et contenu : date de fin, ce qui reste accessible).
+- **Email de rappel avant renouvellement tacite** de l'abonnement : à concevoir, à faire valider
+  (obligation, délai d'envoi avant l'échéance, contenu). Nécessite un envoi planifié (le cron Vercel du
+  plan gratuit n'autorise qu'une exécution par jour).
+- **Choix du médiateur de la consommation** : toujours bloquant. L'article est retiré des CGV et la
+  mention du médiateur est attendue dans l'email de confirmation. Choisir un médiateur, puis
+  réintroduire l'article des CGV avec son nom, son site et son adresse postale.
+- **Durée de conservation de `contract_confirmations`** (statut d'envoi, texte envoyé, empreinte du PDF
+  joint) : à décider, avec celle de `consents`, et à inscrire dans la politique de confidentialité
+  (`[À COMPLÉTER]`).
+- **CGV versionnées** : le PDF joint doit porter la version des CGV **de l'achat** (`cgvVersion`
+  enregistrée dans la session Stripe et dans `consents`). Les versions publiées sont donc immuables
+  dans le code (une modification = nouvelle version et nouvelle valeur de `CGV_VERSION`).
 
 ## Stripe : configuration du compte et reçus
 
