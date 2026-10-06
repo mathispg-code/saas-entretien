@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import type { GenerationResult } from "../generateur/types";
+import type { AccessPlan, AccessRow } from "./access";
 
 /**
  * Client Supabase cote serveur uniquement (cle service_role, jamais exposee
@@ -21,8 +22,16 @@ const supabase =
  * Ne bloque jamais la generation : si Supabase est mal configure ou
  * indisponible, on logue l'erreur et on renvoie null plutot que de faire
  * echouer la requete.
+ *
+ * Avec un acces illimite valide (Pass hebdo / abonnement), la generation est
+ * creee deja payee et rattachee a cet acces (pour le plafond quotidien) : le
+ * feedback, l'analyse CV et l'export PDF fonctionnent alors comme pour un
+ * pack achete.
  */
-export async function insertGeneration(): Promise<string | null> {
+export async function insertGeneration(options?: {
+  paid?: boolean;
+  accessId?: string;
+}): Promise<string | null> {
   if (!supabase) {
     console.error(
       "Supabase non configure (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY manquants) : génération non tracée.",
@@ -32,7 +41,11 @@ export async function insertGeneration(): Promise<string | null> {
 
   const { data, error } = await supabase
     .from("generations")
-    .insert({})
+    .insert(
+      options?.accessId
+        ? { paid: options.paid ?? false, access_id: options.accessId }
+        : { paid: options?.paid ?? false },
+    )
     .select("id")
     .single();
 
@@ -151,4 +164,169 @@ export async function pingDatabase(): Promise<void> {
     console.error("Échec du ping Supabase (keep-alive):", error);
     throw new Error("Ping Supabase impossible.");
   }
+}
+
+const ACCESS_COLUMNS =
+  "id, email, plan, status, expires_at, current_period_end, cancel_at_period_end, stripe_customer_id, stripe_subscription_id, token_hash";
+
+/**
+ * Lectures de la table "access" : comme getGeneration, elles levent une
+ * exception en cas d'erreur d'infrastructure (une decision d'acces ne doit
+ * jamais degrader en silence), et renvoient null si la ligne n'existe pas.
+ */
+export async function findAccessByTokenHash(tokenHash: string): Promise<AccessRow | null> {
+  if (!supabase) {
+    throw new Error(
+      "Supabase non configuré (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY manquants).",
+    );
+  }
+  const { data, error } = await supabase
+    .from("access")
+    .select(ACCESS_COLUMNS)
+    .eq("token_hash", tokenHash)
+    .maybeSingle();
+  if (error) {
+    console.error("Échec de la lecture dans la table access (jeton):", error);
+    throw new Error("Lecture Supabase impossible.");
+  }
+  return (data as AccessRow | null) ?? null;
+}
+
+export async function findAccessBySessionId(sessionId: string): Promise<AccessRow | null> {
+  if (!supabase) {
+    throw new Error(
+      "Supabase non configuré (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY manquants).",
+    );
+  }
+  const { data, error } = await supabase
+    .from("access")
+    .select(ACCESS_COLUMNS)
+    .eq("stripe_checkout_session_id", sessionId)
+    .maybeSingle();
+  if (error) {
+    console.error("Échec de la lecture dans la table access (session):", error);
+    throw new Error("Lecture Supabase impossible.");
+  }
+  return (data as AccessRow | null) ?? null;
+}
+
+/**
+ * Associe le hash du jeton a un acces, une seule fois : la condition
+ * "token_hash is null" rend la reclamation atomique et a usage unique (un
+ * identifiant de session Checkout rejoue ensuite ne donne plus rien).
+ */
+export async function claimAccess(id: string, tokenHash: string): Promise<boolean> {
+  if (!supabase) {
+    console.error("Supabase non configuré : accès non réclamé.");
+    return false;
+  }
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("access")
+    .update({ token_hash: tokenHash, claimed_at: now, updated_at: now })
+    .eq("id", id)
+    .is("token_hash", null)
+    .select("id");
+  if (error) {
+    console.error("Échec de la réclamation d'un accès:", error);
+    return false;
+  }
+  return (data?.length ?? 0) > 0;
+}
+
+export type NewAccess = {
+  sessionId: string;
+  email: string | null;
+  customerId: string | null;
+  plan: AccessPlan;
+  status: string;
+  expiresAt: string | null;
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  subscriptionId: string | null;
+};
+
+/**
+ * Cree l'acces issu d'un Checkout termine (appele par le webhook). Idempotent
+ * sur la session Checkout : un webhook rejoue ne recree rien et ne decale
+ * jamais la date de fin d'un pass.
+ */
+export async function createAccess(access: NewAccess): Promise<boolean> {
+  if (!supabase) {
+    console.error("Supabase non configuré : accès non enregistré.");
+    return false;
+  }
+  const { error } = await supabase.from("access").upsert(
+    {
+      stripe_checkout_session_id: access.sessionId,
+      email: access.email,
+      stripe_customer_id: access.customerId,
+      plan: access.plan,
+      status: access.status,
+      expires_at: access.expiresAt,
+      current_period_end: access.currentPeriodEnd,
+      cancel_at_period_end: access.cancelAtPeriodEnd,
+      stripe_subscription_id: access.subscriptionId,
+    },
+    { onConflict: "stripe_checkout_session_id", ignoreDuplicates: true },
+  );
+  if (error) {
+    console.error("Échec de la création d'un accès:", error);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Met a jour un abonnement (webhook). Renvoie "not_found" si aucune ligne ne
+ * correspond (le webhook de fin de Checkout n'est peut-etre pas encore passe :
+ * l'appelant demande alors a Stripe de rejouer l'evenement).
+ */
+export async function updateSubscriptionAccess(
+  subscriptionId: string,
+  fields: { status: string; currentPeriodEnd?: string | null; cancelAtPeriodEnd?: boolean },
+): Promise<"updated" | "not_found" | "error"> {
+  if (!supabase) {
+    console.error("Supabase non configuré : abonnement non mis à jour.");
+    return "error";
+  }
+  const update: Record<string, unknown> = {
+    status: fields.status,
+    updated_at: new Date().toISOString(),
+  };
+  if (fields.currentPeriodEnd !== undefined) update.current_period_end = fields.currentPeriodEnd;
+  if (fields.cancelAtPeriodEnd !== undefined) update.cancel_at_period_end = fields.cancelAtPeriodEnd;
+
+  const { data, error } = await supabase
+    .from("access")
+    .update(update)
+    .eq("stripe_subscription_id", subscriptionId)
+    .select("id");
+  if (error) {
+    console.error("Échec de la mise à jour d'un abonnement:", error);
+    return "error";
+  }
+  return (data?.length ?? 0) > 0 ? "updated" : "not_found";
+}
+
+/** Nombre de generations creees avec cet acces depuis une date (plafond quotidien). */
+export async function countAccessGenerationsSince(
+  accessId: string,
+  sinceIso: string,
+): Promise<number> {
+  if (!supabase) {
+    throw new Error(
+      "Supabase non configuré (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY manquants).",
+    );
+  }
+  const { count, error } = await supabase
+    .from("generations")
+    .select("id", { count: "exact", head: true })
+    .eq("access_id", accessId)
+    .gte("created_at", sinceIso);
+  if (error) {
+    console.error("Échec du décompte des générations d'un accès:", error);
+    throw new Error("Lecture Supabase impossible.");
+  }
+  return count ?? 0;
 }

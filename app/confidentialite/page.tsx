@@ -108,8 +108,21 @@ export default function Confidentialite() {
                 <strong>Les données de paiement</strong> : elles sont saisies sur la
                 page de paiement de Stripe (adresse email et données de carte
                 bancaire). Nous ne voyons ni ne stockons les données de carte.
-                Nous n&apos;enregistrons pas ton adresse email dans notre base de
-                données ; elle reste consultable dans notre tableau de bord Stripe.
+                Pour le pack Fiche unique, nous n&apos;enregistrons pas ton adresse
+                email dans notre base de données ; elle reste consultable dans
+                notre tableau de bord Stripe. Pour le Pass hebdomadaire et
+                l&apos;abonnement Illimité, voir la ligne suivante.
+              </li>
+              <li>
+                <strong>Les données d&apos;accès au Pass hebdomadaire et à
+                l&apos;abonnement Illimité</strong> : l&apos;adresse email saisie lors du
+                paiement, l&apos;offre choisie, son statut (actif, paiement échoué,
+                résilié...), ses dates de fin ou de renouvellement, les
+                identifiants Stripe du client, de l&apos;abonnement et de la session de
+                paiement, et une empreinte (hash) du jeton contenu dans ton cookie
+                d&apos;accès (le jeton lui-même n&apos;est pas conservé). Les
+                générations réalisées avec cet accès y sont rattachées, pour
+                appliquer la limite d&apos;usage raisonnable.
               </li>
               <li>
                 <strong>Des statistiques de fréquentation</strong> (voir plus bas,
@@ -139,6 +152,12 @@ export default function Confidentialite() {
                 <strong>Traiter les paiements</strong> : exécution du contrat.
               </li>
               <li>
+                <strong>Gérer ton accès au Pass hebdomadaire ou à l&apos;abonnement
+                Illimité</strong> (rattacher l&apos;accès à ton achat, vérifier qu&apos;il
+                est valide, gérer le renouvellement et la résiliation) : exécution
+                du contrat.
+              </li>
+              <li>
                 <strong>Mesure d&apos;audience</strong> : intérêt légitime de
                 connaître la fréquentation du site.{" "}
                 <Mark
@@ -148,7 +167,8 @@ export default function Confidentialite() {
               </li>
               <li>
                 <strong>Sécurité du service</strong> (par exemple, vérification du
-                paiement côté serveur) : intérêt légitime.
+                paiement côté serveur, limite d&apos;usage raisonnable contre les
+                abus) : intérêt légitime.
               </li>
             </ul>
           </section>
@@ -173,7 +193,8 @@ export default function Confidentialite() {
               </li>
               <li>
                 <strong>Supabase</strong> — base de données où sont enregistrés les
-                résultats et les informations techniques décrites ci-dessus.{" "}
+                résultats, les informations techniques et les données d&apos;accès
+                décrites ci-dessus.{" "}
                 <Mark
                   kind="À VÉRIFIER"
                   label="région du projet Supabase et garanties de transfert hors UE"
@@ -196,9 +217,11 @@ export default function Confidentialite() {
                 />
               </li>
               <li>
-                <strong>Stripe</strong> — paiement. Collecte les données de paiement
-                sur sa propre page ; nous ne voyons ni ne stockons les données de
-                carte bancaire.{" "}
+                <strong>Stripe</strong> — paiement et gestion de l&apos;abonnement
+                (page de paiement, prélèvements mensuels, portail «&nbsp;Gérer mon
+                abonnement&nbsp;»). Collecte les données de paiement sur ses propres
+                pages ; nous ne voyons ni ne stockons les données de carte
+                bancaire.{" "}
                 <Mark
                   kind="À VÉRIFIER"
                   label="localisation du traitement et garanties de transfert hors UE"
@@ -224,7 +247,10 @@ export default function Confidentialite() {
               <strong>Cookies et identifiants :</strong> nous avons vérifié que le
               composant utilisé (version 2.0.1) n&apos;écrit ni cookie, ni
               localStorage, ni sessionStorage, ni base locale dans ton navigateur,
-              et qu&apos;aucun cookie n&apos;est déposé par les pages du site.
+              et que la navigation sur le site ne dépose aucun cookie. Le seul
+              cookie du site est le cookie d&apos;accès décrit ci-dessous, déposé
+              uniquement si tu achètes le Pass hebdomadaire ou l&apos;abonnement
+              Illimité.
               D&apos;après Vercel, les visiteurs sont distingués par une empreinte
               calculée à partir de la requête, automatiquement supprimée au bout de
               24 heures.
@@ -264,11 +290,13 @@ export default function Confidentialite() {
               </li>
             </ul>
             <p className="mt-3">
-              Comme il n&apos;y a pas de compte, ton accès payant est lié à ce
-              stockage, donc à l&apos;appareil et au navigateur utilisés lors de
-              l&apos;achat. Vider les données du navigateur, changer d&apos;appareil
-              ou utiliser la navigation privée peut te faire perdre l&apos;accès
-              (voir l&apos;article 5 des{" "}
+              Comme il n&apos;y a pas de compte, ton accès payant est lié à
+              l&apos;appareil et au navigateur utilisés lors de l&apos;achat : à ce
+              stockage pour le pack Fiche unique, au cookie d&apos;accès ci-dessous
+              pour le Pass hebdomadaire et l&apos;abonnement Illimité. Vider les
+              données du navigateur, changer d&apos;appareil ou utiliser la
+              navigation privée peut te faire perdre l&apos;accès (voir
+              l&apos;article 7 des{" "}
               <Link
                 href="/cgv"
                 className="font-medium text-emerald-600 underline hover:text-emerald-700"
@@ -282,6 +310,40 @@ export default function Confidentialite() {
 
           <section>
             <h2 className="text-base font-semibold text-navy-800">
+              Cookie d&apos;accès (Pass hebdomadaire et Illimité)
+            </h2>
+            <p className="mt-2">
+              Lorsque tu achètes le Pass hebdomadaire ou l&apos;abonnement
+              Illimité, le site dépose dans ton navigateur un cookie nommé{" "}
+              <Key>candiview_access</Key>. Il contient un jeton aléatoire qui permet
+              à nos serveurs de reconnaître ton achat sur cet appareil et de te
+              donner l&apos;accès illimité.
+            </p>
+            <ul className="mt-3 list-disc space-y-2 pl-5">
+              <li>
+                Il est déposé uniquement après un achat de ce type, jamais lors de
+                la simple navigation.
+              </li>
+              <li>
+                Il n&apos;est pas lisible par les scripts de la page (cookie «
+                httpOnly »), n&apos;est transmis que sur connexion sécurisée et
+                n&apos;est envoyé qu&apos;à CandiView.
+              </li>
+              <li>
+                Durée de vie : 12 mois au maximum. La validité réelle de ton accès
+                (7 jours pour le Pass, tant que l&apos;abonnement est actif pour
+                Illimité) est vérifiée côté serveur.
+              </li>
+              <li>
+                Il est strictement nécessaire au service que tu as demandé : il ne
+                sert ni à te suivre, ni à de la publicité, et ne nécessite donc pas
+                de consentement de ta part.
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-base font-semibold text-navy-800">
               Durée de conservation
             </h2>
             <ul className="mt-2 list-disc space-y-2 pl-5">
@@ -289,6 +351,16 @@ export default function Confidentialite() {
                 <strong>Résultats générés et informations techniques</strong> (base
                 de données) :{" "}
                 <Mark kind="À COMPLÉTER" label="durée à décider" />
+              </li>
+              <li>
+                <strong>Données d&apos;accès (Pass hebdomadaire / Illimité)</strong>{" "}
+                (adresse email, statut, identifiants Stripe) : pendant la durée de
+                l&apos;accès, puis{" "}
+                <Mark kind="À COMPLÉTER" label="durée de conservation après la fin de l'accès" />
+              </li>
+              <li>
+                <strong>Cookie d&apos;accès :</strong> 12 mois au maximum, ou jusqu&apos;à ce
+                que tu le supprimes.
               </li>
               <li>
                 <strong>Stockage local du navigateur :</strong> jusqu&apos;à ce que tu
@@ -315,7 +387,9 @@ export default function Confidentialite() {
               demander l&apos;effacement, communique-nous cet identifiant : il figure
               dans le stockage local de ton navigateur (clé{" "}
               <Key>entretien-ia:last-generation-id</Key>). Si tu as payé, il peut
-              aussi être retrouvé à partir de ton paiement Stripe.
+              aussi être retrouvé à partir de ton paiement Stripe. Pour les données
+              d&apos;accès au Pass hebdomadaire ou à l&apos;abonnement Illimité, nous te
+              retrouvons à partir de l&apos;adresse email saisie lors du paiement.
             </p>
             <p className="mt-3">
               Tu peux également introduire une réclamation auprès de la CNIL :{" "}

@@ -1,6 +1,11 @@
 import type Stripe from "stripe";
+import { HEBDO_DURATION_MS } from "../../../lib/access";
 import { stripe } from "../../../lib/stripe";
-import { markGenerationPaid } from "../../../lib/supabase";
+import {
+  createAccess,
+  markGenerationPaid,
+  updateSubscriptionAccess,
+} from "../../../lib/supabase";
 
 export const runtime = "nodejs";
 
@@ -32,22 +37,177 @@ export async function POST(request: Request) {
     return new Response("Signature invalide.", { status: 400 });
   }
 
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session;
-    const generationId = session.metadata?.generationId;
-
-    if (!generationId) {
-      console.error("checkout.session.completed reçu sans generationId en metadata.");
-      return new Response("ok", { status: 200 });
-    }
-
-    // Idempotent (remettre paid=true n'a aucun effet de bord) : en cas
-    // d'echec on renvoie une erreur pour que Stripe reessaie l'envoi.
-    const success = await markGenerationPaid(generationId, session.id);
-    if (!success) {
-      return new Response("Échec de la mise à jour.", { status: 500 });
-    }
+  // Chaque handler renvoie false pour qu'on reponde 500 : Stripe reessaie
+  // alors l'evenement (jusqu'a 3 jours). Tous sont idempotents.
+  let success = true;
+  switch (event.type) {
+    case "checkout.session.completed":
+      success = await handleCheckoutCompleted(event.data.object, event.created);
+      break;
+    case "customer.subscription.updated":
+    case "customer.subscription.deleted":
+      success = await handleSubscriptionChange(event.data.object);
+      break;
+    case "invoice.payment_failed":
+      success = await handlePaymentFailed(event.data.object);
+      break;
   }
 
-  return new Response("ok", { status: 200 });
+  return success ? new Response("ok", { status: 200 }) : new Response("Échec du traitement.", { status: 500 });
+}
+
+function isResourceMissing(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: string }).code === "resource_missing"
+  );
+}
+
+function customerId(customer: string | { id: string } | null | undefined): string | null {
+  if (!customer) return null;
+  return typeof customer === "string" ? customer : customer.id;
+}
+
+/**
+ * Etat d'un abonnement tel que Stripe le voit AU MOMENT du traitement : les
+ * evenements peuvent arriver dans le desordre, relire l'objet evite
+ * d'ecraser un etat recent par un plus ancien. Si l'objet n'existe pas cote
+ * Stripe (evenement de test sans abonnement reel), on retombe sur la charge
+ * utile de l'evenement.
+ */
+async function currentSubscription(
+  subscriptionId: string,
+  fallback: Stripe.Subscription | null,
+): Promise<Stripe.Subscription | null> {
+  try {
+    return await stripe!.subscriptions.retrieve(subscriptionId);
+  } catch (error) {
+    if (isResourceMissing(error)) return fallback;
+    throw error;
+  }
+}
+
+function subscriptionFields(subscription: Stripe.Subscription) {
+  // Depuis les versions recentes de l'API, la fin de periode est portee par
+  // les lignes de l'abonnement et non plus par l'abonnement lui-meme.
+  const periodEnd = subscription.items.data[0]?.current_period_end;
+  return {
+    status: subscription.status,
+    currentPeriodEnd: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+    cancelAtPeriodEnd: subscription.cancel_at_period_end || subscription.cancel_at !== null,
+  };
+}
+
+async function handleCheckoutCompleted(
+  session: Stripe.Checkout.Session,
+  eventCreated: number,
+): Promise<boolean> {
+  const plan = session.metadata?.plan;
+  const generationId = session.metadata?.generationId;
+
+  // Pack "Fiche unique" : une generation precise passe en "payee". Inchange.
+  if (!plan) {
+    if (!generationId) {
+      console.error("checkout.session.completed reçu sans generationId ni plan en metadata.");
+      return true;
+    }
+    // Idempotent (remettre paid=true n'a aucun effet de bord).
+    return markGenerationPaid(generationId, session.id);
+  }
+
+  const email = session.customer_details?.email ?? session.customer_email ?? null;
+
+  // Pass hebdo : acces illimite 7 jours a compter du paiement, sans reconduction.
+  if (plan === "hebdo") {
+    if (session.payment_status !== "paid") {
+      console.error("Pass hebdo : session terminée mais non payée, accès non créé.");
+      return true;
+    }
+    return createAccess({
+      sessionId: session.id,
+      email,
+      customerId: customerId(session.customer),
+      plan: "hebdo",
+      status: "active",
+      expiresAt: new Date(eventCreated * 1000 + HEBDO_DURATION_MS).toISOString(),
+      currentPeriodEnd: null,
+      cancelAtPeriodEnd: false,
+      subscriptionId: null,
+    });
+  }
+
+  // Illimite : abonnement mensuel, tant que Stripe le dit actif.
+  if (plan === "mensuel") {
+    const subscriptionId =
+      typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
+    if (!subscriptionId) {
+      console.error("Abonnement : session terminée sans abonnement associé.");
+      return true;
+    }
+    const subscription = await currentSubscription(subscriptionId, null);
+    const fields = subscription
+      ? subscriptionFields(subscription)
+      : { status: "active", currentPeriodEnd: null, cancelAtPeriodEnd: false };
+    return createAccess({
+      sessionId: session.id,
+      email,
+      customerId: customerId(session.customer),
+      plan: "mensuel",
+      status: fields.status,
+      expiresAt: null,
+      currentPeriodEnd: fields.currentPeriodEnd,
+      cancelAtPeriodEnd: fields.cancelAtPeriodEnd,
+      subscriptionId,
+    });
+  }
+
+  console.error(`checkout.session.completed : offre inconnue "${plan}".`);
+  return true;
+}
+
+async function syncSubscription(
+  subscriptionId: string,
+  fallback: Stripe.Subscription | null,
+): Promise<boolean> {
+  const subscription = await currentSubscription(subscriptionId, fallback);
+  if (!subscription) return true;
+
+  const fields = subscriptionFields(subscription);
+  const result = await updateSubscriptionAccess(subscriptionId, fields);
+  if (result === "not_found") {
+    // Abonnement jamais finalise (paiement refuse des le Checkout) : rien a
+    // mettre a jour. Sinon le webhook de fin de Checkout n'est peut-etre pas
+    // encore passe : on demande a Stripe de rejouer l'evenement.
+    return fields.status === "incomplete" || fields.status === "incomplete_expired";
+  }
+  return result === "updated";
+}
+
+// updated : renouvellement, resiliation programmee, passage en impaye... ;
+// deleted : fin effective de l'abonnement (statut "canceled").
+async function handleSubscriptionChange(subscription: Stripe.Subscription): Promise<boolean> {
+  return syncSubscription(subscription.id, subscription);
+}
+
+// Echec de paiement d'une facture d'abonnement : Stripe relance le paiement ;
+// l'abonnement passe en "past_due" (acces conserve pendant les relances, coupe
+// s'il devient "canceled" ou "unpaid").
+async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<boolean> {
+  const reference = invoice.parent?.subscription_details?.subscription;
+  const subscriptionId = typeof reference === "string" ? reference : reference?.id;
+  if (!subscriptionId) {
+    return true; // Facture hors abonnement : rien a faire.
+  }
+
+  try {
+    const subscription = await stripe!.subscriptions.retrieve(subscriptionId);
+    const result = await updateSubscriptionAccess(subscriptionId, subscriptionFields(subscription));
+    return result !== "error";
+  } catch (error) {
+    if (!isResourceMissing(error)) throw error;
+    // Pas d'objet cote Stripe (evenement de test) : on applique l'etat attendu.
+    const result = await updateSubscriptionAccess(subscriptionId, { status: "past_due" });
+    return result !== "error";
+  }
 }

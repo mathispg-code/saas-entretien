@@ -4,9 +4,16 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { Allow as PartialJsonAllow, parse as partialParseJson } from "partial-json";
 import { z } from "zod";
 import { corsHeaders, GENERIC_ERROR_MESSAGE, PAYMENT_REQUIRED_MESSAGE, optionsResponse } from "../../lib/api-response";
+import { DAILY_WINDOW_MS, dailyGenerationLimit, type AccessRow } from "../../lib/access";
+import { getActiveAccess } from "../../lib/access-session";
 import { isPaywallBypassed } from "../../lib/dev-bypass";
 import { FREE_TRIAL_QUESTION_COUNT } from "../../lib/free-trial";
-import { getGeneration, insertGeneration, saveGenerationResult } from "../../lib/supabase";
+import {
+  countAccessGenerationsSince,
+  getGeneration,
+  insertGeneration,
+  saveGenerationResult,
+} from "../../lib/supabase";
 
 export const runtime = "nodejs";
 // La generation est streamee (voir plus bas) pour eviter d'attendre la fin
@@ -24,6 +31,8 @@ export const maxDuration = 60;
 // deja emis pendant le streaming restent acquis cote client.
 const SOFT_DEADLINE_MS = 57_000;
 const SOFT_DEADLINE_MESSAGE = "La génération prend plus de temps que prévu, réessaie.";
+const USAGE_LIMIT_MESSAGE =
+  "Tu as atteint la limite d'usage raisonnable pour aujourd'hui. Réessaie dans quelques heures.";
 
 const QUESTION_COUNT_OPTIONS = [5, 8, 12] as const;
 const DEFAULT_QUESTIONS = 8;
@@ -155,7 +164,9 @@ Réponds en français.`;
 }
 
 type StreamEvent =
-  | { type: "generationId"; id: string }
+  // paid : true quand la generation est creee deja payee grace a un acces
+  // illimite (Pass hebdo / abonnement) — le client deverrouille alors l'UI.
+  | { type: "generationId"; id: string; paid?: boolean }
   | { type: "analyse"; data: z.infer<typeof AnalyseSchema> }
   | { type: "question"; data: z.infer<typeof QuestionSchema> }
   | { type: "aPoser"; data: z.infer<typeof APoserItemSchema> }
@@ -287,8 +298,36 @@ export async function POST(request: Request) {
   // paye en main, ne doit jamais heriter d'un paiement fait pour une autre
   // fiche de poste : on cree alors une nouvelle generation non payee.
   const currentInputHash = computeInputHash(text, pdfBase64);
+
+  // Acces illimite (Pass hebdo non expire / abonnement actif), verifie ici a
+  // chaque requete a partir du cookie. Il remplace le paiement par generation :
+  // chaque generation est alors creee deja payee et rattachee a l'acces, sous
+  // un plafond quotidien anti-abus ("usage raisonnable", non affiche). En cas
+  // de panne de lecture, on retombe sur l'absence d'acces plutot que de
+  // l'accorder a tort.
+  let activeAccess: AccessRow | null = null;
+  try {
+    activeAccess = await getActiveAccess(request);
+  } catch (error) {
+    console.error("Erreur lors de la vérification de l'accès avant génération:", error);
+  }
+  if (activeAccess) {
+    try {
+      const sinceIso = new Date(Date.now() - DAILY_WINDOW_MS).toISOString();
+      const used = await countAccessGenerationsSince(activeAccess.id, sinceIso);
+      if (used >= dailyGenerationLimit()) {
+        return errorStream(USAGE_LIMIT_MESSAGE, 429, origin);
+      }
+    } catch (error) {
+      console.error("Erreur lors du décompte quotidien des générations:", error);
+      return errorStream(GENERIC_ERROR_MESSAGE, 500, origin);
+    }
+  }
+
   let reusableGenerationId: string | null = null;
-  if (requestedGenerationId && UUID_REGEX.test(requestedGenerationId)) {
+  // Avec un acces valide, on cree toujours une nouvelle generation (comptee
+  // dans le plafond) : jamais de reutilisation d'une generation deja payee.
+  if (!activeAccess && requestedGenerationId && UUID_REGEX.test(requestedGenerationId)) {
     let existingGeneration;
     try {
       existingGeneration = await getGeneration(requestedGenerationId);
@@ -310,7 +349,12 @@ export async function POST(request: Request) {
     }
   }
 
-  if (questionCount > FREE_TRIAL_QUESTION_COUNT && !isPaywallBypassed() && !reusableGenerationId) {
+  if (
+    questionCount > FREE_TRIAL_QUESTION_COUNT &&
+    !isPaywallBypassed() &&
+    !reusableGenerationId &&
+    !activeAccess
+  ) {
     return errorStream(PAYMENT_REQUIRED_MESSAGE, 402, origin);
   }
 
@@ -397,9 +441,15 @@ export async function POST(request: Request) {
     // meme de lancer l'appel Anthropic, pour qu'une ligne existe meme si la
     // generation echoue ensuite. Ne bloque jamais : en cas d'echec, on
     // continue sans id.
-    const generationId = reusableGenerationId ?? (await insertGeneration());
+    const generationId =
+      reusableGenerationId ??
+      (await insertGeneration(activeAccess ? { paid: true, accessId: activeAccess.id } : undefined));
     if (generationId) {
-      send({ type: "generationId", id: generationId });
+      send({
+        type: "generationId",
+        id: generationId,
+        ...(activeAccess && generationId !== reusableGenerationId ? { paid: true } : {}),
+      });
     }
 
     let emittedAnalyse = false;

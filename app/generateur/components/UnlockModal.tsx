@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, Download, FileText, Lock, Sparkles, Unlock, X } from "lucide-react";
+import { Download, FileText, Lock, Sparkles, Unlock, X } from "lucide-react";
 import { CgvConsent } from "../../components/CgvConsent";
 import { SpinnerIcon } from "../../components/icons";
+import { startPlanCheckout } from "../../lib/access-client";
 import { startCheckout } from "../lib/checkout";
 import { GENERIC_ERROR_MESSAGE } from "../types";
 
@@ -48,16 +49,12 @@ export function UnlockModal({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Pass hebdo et Illimite pas encore branches a Stripe (voir TODO.md) :
-  // simulation visuelle uniquement, jamais de fausse redirection de paiement.
-  // Nature differente a garder en tete pour le futur branchement :
-  // - Pass hebdo (6,99€) : paiement UNIQUE comme "Fiche unique", donne un
-  //   acces illimite 7 jours puis s'arrete seul, sans reconduction — donc
-  //   un Stripe Checkout en mode "payment", pas "subscription".
-  // - Illimite (9,99€/mois) : vrai ABONNEMENT recurrent, redebite chaque
-  //   mois jusqu'a resiliation — Stripe Checkout en mode "subscription".
-  const [subscribing, setSubscribing] = useState(false);
-  const [selectingWeekly, setSelectingWeekly] = useState(false);
+  // Pass hebdo (6,99€) : paiement UNIQUE, acces illimite 7 jours puis arret
+  // automatique (Stripe Checkout mode "payment"). Illimite (9,99€/mois) : vrai
+  // ABONNEMENT recurrent (mode "subscription"). Les deux donnent un acces
+  // rattache a l'acheteur et a son appareil, pas a cette generation — voir
+  // app/api/checkout. "Fiche unique" reste le pack d'une generation precise.
+  const [loadingPlan, setLoadingPlan] = useState<"hebdo" | "mensuel" | null>(null);
   // Case CGV obligatoire (demande d'execution immediate + renonciation a la
   // retractation) : les 3 boutons d'offre restent inactifs tant qu'elle n'est
   // pas cochee, et elle est redemandee a chaque ouverture de la modale.
@@ -86,6 +83,7 @@ export function UnlockModal({
   useEffect(() => {
     if (open) {
       setLoading(false);
+      setLoadingPlan(null);
       setError(null);
       setAccepted(false);
     }
@@ -110,16 +108,19 @@ export function UnlockModal({
     }
   }
 
-  function handleSubscribeClick() {
-    console.log("Offre sélectionnée : illimite (depuis la modale de paiement)");
-    setSubscribing(true);
-    setTimeout(() => setSubscribing(false), 1800);
-  }
-
-  function handleWeeklyClick() {
-    console.log("Offre sélectionnée : pass-hebdo (depuis la modale de paiement)");
-    setSelectingWeekly(true);
-    setTimeout(() => setSelectingWeekly(false), 1800);
+  async function handlePlanCheckout(plan: "hebdo" | "mensuel") {
+    if (loading || loadingPlan) {
+      return;
+    }
+    setLoadingPlan(plan);
+    setError(null);
+    try {
+      const url = await startPlanCheckout(plan);
+      window.location.href = url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : GENERIC_ERROR_MESSAGE);
+      setLoadingPlan(null);
+    }
   }
 
   return (
@@ -196,38 +197,30 @@ export function UnlockModal({
                 <button
                   type="button"
                   onClick={handleUnlock}
-                  disabled={!generationId || loading || !accepted}
+                  disabled={!generationId || loading || loadingPlan !== null || !accepted}
                   className="flex flex-none items-center gap-1.5 rounded-lg border border-emerald-400/40 bg-transparent px-3.5 py-2 text-xs font-semibold text-emerald-300 transition enabled:hover:border-emerald-400 enabled:hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {loading ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
                   {loading ? "Redirection…" : "Choisir"}
                 </button>
               </div>
-              {error && <p className="mt-2 text-center text-xs text-rose-300">{error}</p>}
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="font-semibold text-white">Pass hebdomadaire</p>
-                  <p className="text-xs text-slate-400">6,99 € · paiement unique</p>
+                  <p className="text-xs text-slate-400">6,99 € TTC · TVA non applicable</p>
+                  <p className="text-xs text-slate-400">Paiement unique · accès 7 jours</p>
                 </div>
                 <button
                   type="button"
-                  onClick={handleWeeklyClick}
-                  disabled={selectingWeekly || !accepted}
-                  className={`flex flex-none items-center gap-1.5 rounded-lg border border-emerald-400/40 bg-transparent px-3.5 py-2 text-xs font-semibold text-emerald-300 transition enabled:hover:border-emerald-400 enabled:hover:bg-emerald-500/10 disabled:cursor-default ${
-                    !accepted && !selectingWeekly ? "cursor-not-allowed opacity-40" : ""
-                  }`}
+                  onClick={() => handlePlanCheckout("hebdo")}
+                  disabled={loading || loadingPlan !== null || !accepted}
+                  className="flex flex-none items-center gap-1.5 rounded-lg border border-emerald-400/40 bg-transparent px-3.5 py-2 text-xs font-semibold text-emerald-300 transition enabled:hover:border-emerald-400 enabled:hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {selectingWeekly ? (
-                    <>
-                      <Check className="h-3.5 w-3.5" />
-                      Choisi
-                    </>
-                  ) : (
-                    "Choisir"
-                  )}
+                  {loadingPlan === "hebdo" && <SpinnerIcon className="h-3.5 w-3.5" />}
+                  {loadingPlan === "hebdo" ? "Redirection…" : "Choisir"}
                 </button>
               </div>
             </div>
@@ -239,27 +232,21 @@ export function UnlockModal({
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="font-semibold text-white">Illimité</p>
-                  <p className="text-xs text-slate-300">9,99 € · / mois</p>
+                  <p className="text-xs text-slate-300">9,99 € TTC / mois · TVA non applicable</p>
+                  <p className="text-xs text-slate-300">Résiliable à tout moment</p>
                 </div>
                 <button
                   type="button"
-                  onClick={handleSubscribeClick}
-                  disabled={subscribing || !accepted}
-                  className={`flex flex-none items-center gap-1.5 rounded-lg bg-emerald-500 px-3.5 py-2 text-xs font-semibold text-navy-950 shadow-[0_0_20px_-8px_rgba(16,185,129,0.7)] transition enabled:hover:bg-emerald-400 disabled:cursor-default ${
-                    !accepted && !subscribing ? "cursor-not-allowed opacity-50" : ""
-                  }`}
+                  onClick={() => handlePlanCheckout("mensuel")}
+                  disabled={loading || loadingPlan !== null || !accepted}
+                  className="flex flex-none items-center gap-1.5 rounded-lg bg-emerald-500 px-3.5 py-2 text-xs font-semibold text-navy-950 shadow-[0_0_20px_-8px_rgba(16,185,129,0.7)] transition enabled:hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {subscribing ? (
-                    <>
-                      <Check className="h-3.5 w-3.5" />
-                      Choisi
-                    </>
-                  ) : (
-                    "S'abonner"
-                  )}
+                  {loadingPlan === "mensuel" && <SpinnerIcon className="h-3.5 w-3.5" />}
+                  {loadingPlan === "mensuel" ? "Redirection…" : "S'abonner"}
                 </button>
               </div>
             </div>
+            {error && <p className="text-center text-xs text-rose-300">{error}</p>}
           </div>
 
           <Link

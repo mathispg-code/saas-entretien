@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { SiteHeader } from "../components/SiteHeader";
 import { SiteFooter } from "../components/SiteFooter";
 import { RevealOnScroll } from "../components/RevealOnScroll";
@@ -33,11 +34,12 @@ const PLANS = [
     // acces illimite pendant 7 jours puis s'arrete tout seul, sans jamais
     // redebiter. Le libelle doit rester distinct de "/ mois" (Illimite,
     // vrai abonnement recurrent) pour ne jamais laisser croire a un
-    // prelevement hebdomadaire recurrent.
+    // prelevement hebdomadaire recurrent. "Usage raisonnable" : plafond
+    // anti-abus cote serveur (non chiffre ici, voir les CGV).
     period: "paiement unique",
     description: "Pour une recherche intensive sur une courte période.",
     features: [
-      "Génération illimitée de fiches de poste pendant 7 jours",
+      "Générations illimitées pendant 7 jours, dans le cadre d'un usage raisonnable",
       "Feedback IA, analyse de CV et export PDF inclus sur chaque candidature",
       "Jusqu'à 12 questions par fiche, sans supplément",
       "Aucune reconduction automatique",
@@ -52,24 +54,22 @@ const PLANS = [
     period: "/ mois",
     description: "Pour multiplier les candidatures sans compter.",
     features: [
-      "Génération illimitée de fiches de poste",
+      "Générations illimitées, dans le cadre d'un usage raisonnable",
       "Feedback IA, analyse de CV et export PDF inclus sur chaque candidature",
       "Jusqu'à 12 questions par fiche, sans supplément",
-      "Sans engagement, résiliable à tout moment",
+      "Sans engagement, résiliable en un clic à tout moment",
     ],
     cta: "S'abonner",
     featured: true,
   },
 ];
 
-// Pass hebdo et Illimite sont encore simules (pas de Stripe, pas couverts par
-// les CGV — voir TODO.md) : masques tant que ce drapeau est a false. Passer
-// a true les reaffiche tels quels, sans autre modification.
-const SHOW_SIMULATED_PLANS = false;
+// Pass hebdo et Illimite sont branches a Stripe (mode test pour l'instant,
+// CGV encore en brouillon — voir TODO.md). Passer ce drapeau a false les
+// masque a nouveau et ne laisse que la Fiche unique, sans autre modification.
+const SHOW_ALL_PLANS = true;
 
-const VISIBLE_PLANS = PLANS.filter(
-  (plan) => SHOW_SIMULATED_PLANS || plan.id === "fiche-unique",
-);
+const VISIBLE_PLANS = PLANS.filter((plan) => SHOW_ALL_PLANS || plan.id === "fiche-unique");
 const SINGLE_PLAN = VISIBLE_PLANS.length === 1;
 
 export default function TarifsPage() {
@@ -154,6 +154,18 @@ export default function TarifsPage() {
               </RevealOnScroll>
             ))}
           </div>
+
+          {!SINGLE_PLAN && (
+            <p className="mx-auto mt-8 max-w-2xl text-center text-xs text-slate-500">
+              Usage raisonnable : les offres illimitées s&apos;entendent dans le cadre d&apos;un
+              usage personnel normal ; en cas d&apos;usage manifestement abusif, la génération peut
+              être temporairement limitée (voir les{" "}
+              <Link href="/cgv" className="font-medium underline hover:text-slate-700">
+                CGV
+              </Link>
+              ).
+            </p>
+          )}
         </div>
       </section>
 

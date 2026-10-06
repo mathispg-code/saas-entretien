@@ -24,7 +24,13 @@ import {
   getStoredGenerationId,
   storeGenerationId,
 } from "../lib/generation-id";
+import {
+  claimAccessWithRetry,
+  fetchAccessStatus,
+  type AccessStatus,
+} from "../lib/access-client";
 import { hasSeenUnlockModal, markUnlockModalSeen } from "../lib/unlock-modal-seen";
+import { AccessStatusBar } from "./components/AccessStatusBar";
 import { AnalyseCard } from "./components/AnalyseCard";
 import { ResultsActionBar } from "./components/ResultsActionBar";
 import { ResultsTabs } from "./components/ResultsTabs";
@@ -50,6 +56,11 @@ const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 // seulement l'attente des en-tetes de reponse.
 const GENERATION_TIMEOUT_MS = 65_000;
 const GENERATION_TIMEOUT_MESSAGE = "La génération prend plus de temps que prévu, réessaie.";
+
+// Sessions Stripe deja en cours de reclamation : la reclamation du cookie
+// d'acces est a usage unique, un second appel (double execution des effets en
+// developpement) la ferait echouer a tort.
+const claimsStarted = new Set<string>();
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -105,10 +116,65 @@ export default function GenerateurPage() {
   // automatique apres generation).
   const [unlockModalOpen, setUnlockModalOpen] = useState(false);
   const [isAutoPopup, setIsAutoPopup] = useState(false);
+  // Acces illimite (Pass hebdo / abonnement) lu cote serveur via le cookie
+  // d'acces — voir app/lib/access-client.ts. Il remplace le paiement par
+  // fiche : le serveur cree alors chaque generation deja payee.
+  const [access, setAccess] = useState<AccessStatus>({ active: false });
+  const [accessChecked, setAccessChecked] = useState(false);
+  const [accessJustActivated, setAccessJustActivated] = useState(false);
+  const [accessNotice, setAccessNotice] = useState<string | null>(null);
+  const hasAccess = access.active;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cvInputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const hasScrolledRef = useRef(false);
+
+  // Acces illimite : etat de l'appareil et, au retour de Stripe Checkout
+  // (Pass hebdo / Illimite), reclamation du cookie d'acces avec l'identifiant
+  // de session. Les parametres session_id/plan ne sont retires de l'URL
+  // qu'une fois l'acces reclame, pour qu'un rechargement puisse retenter si
+  // le paiement n'est pas encore enregistre cote serveur.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get("session_id");
+    const claiming = Boolean(sessionId && params.get("plan"));
+
+    function stripReturnParams() {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("session_id");
+      url.searchParams.delete("plan");
+      window.history.replaceState({}, "", url.pathname + url.search);
+    }
+
+    async function loadAccess() {
+      if (claiming && sessionId && !claimsStarted.has(sessionId)) {
+        claimsStarted.add(sessionId);
+        const outcome = await claimAccessWithRetry(sessionId);
+        if (outcome === "claimed") {
+          setAccessJustActivated(true);
+        } else if (outcome === "already") {
+          setAccessNotice(
+            "Cet accès a déjà été activé sur un autre appareil ou navigateur. L'accès est lié à l'appareil utilisé lors de l'achat : contacte-nous à contact@candiview.fr si tu l'as perdu.",
+          );
+        } else if (outcome === "pending") {
+          setAccessNotice(
+            "Ton paiement est bien reçu, mais l'activation prend plus de temps que prévu. Recharge cette page dans une minute.",
+          );
+        } else {
+          setAccessNotice(
+            "L'activation de ton accès a échoué. Recharge la page ou contacte contact@candiview.fr.",
+          );
+        }
+        if (outcome !== "pending") {
+          stripReturnParams();
+        }
+      }
+      setAccess(await fetchAccessStatus());
+      setAccessChecked(true);
+    }
+
+    loadAccess();
+  }, []);
 
   useEffect(() => {
     setTrialUsed(hasUsedFreeTrial());
@@ -124,8 +190,11 @@ export default function GenerateurPage() {
     // redirection du navigateur, on retente donc quelques fois avant
     // d'abandonner. Dans les autres cas (chargement normal de la page), un
     // seul essai suffit.
-    const checkoutStatus = new URLSearchParams(window.location.search).get("checkout");
-    const maxAttempts = checkoutStatus === "success" ? 5 : 1;
+    const returnParams = new URLSearchParams(window.location.search);
+    const checkoutStatus = returnParams.get("checkout");
+    // Retour d'un achat de Pass hebdo / abonnement (parametre "plan") : rien
+    // a attendre cote generation, l'acces est gere a part.
+    const maxAttempts = checkoutStatus === "success" && !returnParams.has("plan") ? 5 : 1;
 
     async function hydrateFromStoredGeneration() {
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -201,7 +270,8 @@ export default function GenerateurPage() {
   // une nouvelle generation. Une seule regle partout : un paiement debloque
   // une generation precise, point (voir app/api/generate/route.ts et
   // app/api/checkout/route.ts) — jamais un flag "a vie" sur l'appareil.
-  const isLocked = trialUsed && !paid;
+  // Un acces illimite actif leve aussi le verrou (le serveur le reverifie).
+  const isLocked = trialUsed && !paid && !hasAccess;
 
   async function handleGenerate() {
     // Si la generation actuellement suivie est deja payee, on la reutilise :
@@ -223,7 +293,7 @@ export default function GenerateurPage() {
     // Garde-fou : le bouton est désactivé dans ce cas, mais on protège aussi
     // l'appel API directement. Voir app/lib/free-trial.ts. Une generation
     // deja payee reste generable a nouveau (reusableGenerationId non nul).
-    if (trialUsed && !reusableGenerationId) {
+    if (trialUsed && !reusableGenerationId && !hasAccess) {
       return;
     }
 
@@ -244,6 +314,9 @@ export default function GenerateurPage() {
     // setGenerationId ne met pas a jour la valeur capturee par cette closure
     // au sein du meme appel de fonction (meme principe que receivedDone).
     let capturedGenerationId: string | null = null;
+    // Vrai si la generation est deja payee (id paye reutilise, ou creee par
+    // le serveur grace a un acces illimite) : pas de popup de conversion.
+    let capturedPaid = false;
     const controller = new AbortController();
     // Couvre tout le cycle (requete + lecture complete du flux) : voir le
     // commentaire sur GENERATION_TIMEOUT_MS plus haut.
@@ -322,6 +395,7 @@ export default function GenerateurPage() {
             data?: unknown;
             message?: string;
             id?: string;
+            paid?: boolean;
             hasCv?: boolean;
           };
           try {
@@ -343,9 +417,14 @@ export default function GenerateurPage() {
                 // payee : on corrige l'optimisme de paid=true pose au debut
                 // de handleGenerate, sinon l'UI resterait a tort deverrouillee
                 // (export PDF notamment, qui n'a aucun garde-fou serveur).
-                if (event.id !== reusableGenerationId) {
+                // Exception : avec un acces illimite, le serveur cree une
+                // nouvelle generation deja payee et l'annonce (event.paid).
+                if (event.paid) {
+                  setPaid(true);
+                } else if (event.id !== reusableGenerationId) {
                   setPaid(false);
                 }
+                capturedPaid = event.paid === true || event.id === reusableGenerationId;
                 capturedGenerationId = event.id;
                 setGenerationId(event.id);
                 storeGenerationId(event.id);
@@ -381,7 +460,7 @@ export default function GenerateurPage() {
         // voir app/lib/unlock-modal-seen.ts). paid est necessairement false
         // ici : le paiement ne peut arriver qu'apres, via /api/checkout,
         // qui exige un generationId deja existant.
-        if (capturedGenerationId && !hasSeenUnlockModal(capturedGenerationId)) {
+        if (!capturedPaid && capturedGenerationId && !hasSeenUnlockModal(capturedGenerationId)) {
           const idToShow = capturedGenerationId;
           setTimeout(() => {
             markUnlockModalSeen(idToShow);
@@ -542,6 +621,31 @@ export default function GenerateurPage() {
           className="relative z-10 mx-auto mt-10 max-w-4xl animate-fade-in-up [animation-fill-mode:backwards]"
           style={{ animationDelay: "240ms" }}
         >
+          {access.active && (
+            <AccessStatusBar status={access} justActivated={accessJustActivated} />
+          )}
+
+          {accessNotice && (
+            <p className="mb-4 rounded-2xl border border-amber-400/40 bg-amber-500/10 p-4 text-left text-sm text-amber-100">
+              {accessNotice}
+            </p>
+          )}
+
+          {/* Pack "Fiche unique" paye mais pas encore utilise (achat depuis
+              /tarifs ou generation reservee) : il sera consomme par la
+              prochaine generation. */}
+          {paid && !hasAccess && questions === null && !loading && (
+            <div className="mb-4 flex items-start gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-left text-sm text-emerald-100">
+              <CheckIcon className="mt-0.5 h-4 w-4 flex-none" />
+              <p>
+                <strong>Ton pack Fiche unique est prêt.</strong> Il sera utilisé pour ta prochaine
+                génération : colle ta fiche de poste ci-dessous et choisis jusqu&apos;à 12 questions,
+                avec feedback IA, analyse de CV et export PDF inclus. Une nouvelle fiche de poste
+                nécessitera un nouveau pack.
+              </p>
+            </div>
+          )}
+
           <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 text-left shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-8">
             <div className="mb-3 flex items-center gap-2">
               <DocumentIcon className="h-5 w-5 text-emerald-400" />
@@ -652,14 +756,15 @@ export default function GenerateurPage() {
                   // Débloqué dès que la génération en cours est payée (jamais
                   // un flag "à vie" sur l'appareil) — voir isLocked plus haut.
                   const optionDisabled =
-                    !paid && (trialUsed || count !== FREE_TRIAL_QUESTION_COUNT);
+                    !paid && !hasAccess && (trialUsed || count !== FREE_TRIAL_QUESTION_COUNT);
                   // "8"/"12" ne sont jamais gratuits, meme sur un appareil
                   // neuf n'ayant jamais utilise son essai gratuit : le clic
                   // ouvre directement la modale de paiement plutot que de ne
                   // rien faire. "5" n'est jamais concerne ici (voir isLocked
                   // et le bouton "Generer" plus bas pour la reutilisation de
                   // l'essai gratuit deja consomme).
-                  const opensUnlockModal = !paid && count !== FREE_TRIAL_QUESTION_COUNT;
+                  const opensUnlockModal =
+                    !paid && !hasAccess && count !== FREE_TRIAL_QUESTION_COUNT;
                   return (
                     <button
                       key={count}
@@ -758,7 +863,7 @@ export default function GenerateurPage() {
         </div>
       </section>
 
-      {isLocked && questions === null && (
+      {isLocked && accessChecked && questions === null && (
         <main className="mx-auto max-w-4xl px-4 pb-16 pt-10">
           <div className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50">

@@ -3,54 +3,65 @@
 Valeurs provisoires utilisées dans le code, à remplacer une fois les
 informations définitives connues.
 
-## Stripe - offres à implémenter
+## Pass hebdo et Illimité : branchés à Stripe (mode test) — à finir avant le live
 
-Deux offres présentes sur [/tarifs](app/tarifs/page.tsx) et dans la modale
-[UnlockModal.tsx](app/generateur/components/UnlockModal.tsx) restent en
-simulation (log + retour visuel), en attendant leur vrai branchement Stripe :
+Fonctionnement (code en place) : cookie d'accès `candiview_access` (jeton aléatoire, seul son
+hash est en base, table `access`), vérification côté serveur dans
+[/api/generate](app/api/generate/route.ts), webhook, Customer Portal, plafond quotidien
+(10 générations / 24 h glissantes, variable `ACCESS_DAILY_GENERATION_LIMIT`, non affiché).
+"Fiche unique" (3,99 €) est inchangée.
 
-- **Pass hebdo (6,99€)** : paiement **unique** (pas un abonnement) — Stripe
-  Checkout en mode `payment`, comme "Fiche unique". Donne un accès illimité
-  pendant 7 jours puis s'arrête automatiquement, sans reconduction. Il faudra
-  ajouter la logique d'expiration après 7 jours (probablement une date de fin
-  stockée sur la génération/l'appareil, à vérifier côté serveur comme le
-  statut `paid` actuel).
-- **Illimité (9,99€/mois)** : vrai **abonnement récurrent** — Stripe Checkout
-  en mode `subscription`, qui redébite chaque mois jusqu'à résiliation. Il
-  faudra gérer la résiliation (portail client Stripe ou webhook dédié) et le
-  statut d'abonnement actif/inactif.
+À faire côté Supabase / Vercel / Stripe :
+- **Exécuter [supabase/access.sql](supabase/access.sql)** dans le SQL Editor (table `access`
+  avec RLS, aucun droit pour anon/authenticated, service_role seulement ; colonne
+  `generations.access_id`) puis lancer les 2 requêtes de vérification en bas du fichier.
+- **Variables Vercel** : `STRIPE_PRICE_ID_UNIQUE` (même valeur que l'ancienne
+  `STRIPE_PRICE_ID`, qui reste acceptée en repli), `STRIPE_PRICE_ID_HEBDO`,
+  `STRIPE_PRICE_ID_MENSUEL`, `SITE_URL=https://www.candiview.fr`, `CRON_SECRET`, et
+  éventuellement `ACCESS_DAILY_GENERATION_LIMIT`. Les prix de test existent (produits
+  "CandiView — Pass hebdomadaire" 6,99 € et "CandiView — Illimité" 9,99 €/mois, créés par API).
+- **Webhook Stripe** (Dashboard > Développeurs > Webhooks, endpoint
+  `https://www.candiview.fr/api/webhooks/stripe`) : ajouter les événements
+  `customer.subscription.updated`, `customer.subscription.deleted` et `invoice.payment_failed`
+  (seul `checkout.session.completed` est écouté aujourd'hui).
+- **Customer Portal** : une configuration de test a été créée par API (résiliation en fin de
+  période, mise à jour de la carte, factures). À refaire en mode **live**. Option sans code :
+  activer la page de connexion du portail (lien par email) pour résilier depuis un autre appareil.
+- **Récupération d'accès par email (OBLIGATOIRE avant le live)** : l'accès est lié au cookie ;
+  perte du cookie / changement d'appareil = accès perdu et la session Checkout ne peut être
+  réclamée qu'une fois. À construire : envoi d'un lien signé à usage unique (ex. Resend, avec
+  SPF/DKIM sur le domaine IONOS) vers l'email du paiement.
+- Décision à confirmer : coupure immédiate dès que Stripe passe l'abonnement en `canceled`/
+  `unpaid` ; l'accès est conservé en `past_due` (relances Stripe) avec un message "mets à jour
+  ta carte via Gérer mon abonnement".
+- Les générations créées avec un pass restent débloquées (feedback, CV, PDF) après son
+  expiration, comme un pack Fiche unique.
+- Réglage Stripe (live) à vérifier : relances de paiement (Smart Retries) et statut final
+  (`canceled` ou `unpaid`) pour que l'accès soit bien coupé à la fin des relances.
 
-"Fiche unique" (3,99€, paiement unique) est déjà fonctionnel avec Stripe —
-ne pas y toucher en implémentant les deux offres ci-dessus.
+## CGV : brouillon à faire relire avant tout passage en live
 
-## Offres simulées encore visibles (à décider)
-
-`/tarifs` ne montre plus que la Fiche unique (drapeau `SHOW_SIMULATED_PLANS = false`
-dans [app/tarifs/page.tsx](app/tarifs/page.tsx), le code des deux autres plans est
-conservé). **Mais deux autres endroits affichent encore Pass hebdo / Illimité** :
-- la modale [UnlockModal.tsx](app/generateur/components/UnlockModal.tsx) (3 offres, boutons simulés) ;
-- le bloc "Tu as testé gratuitement CandiView" de [app/generateur/page.tsx](app/generateur/page.tsx)
-  (ligne "Illimité 9,99 € / mois").
-À masquer de la même façon tant que Stripe n'est pas branché sur ces offres et que les
-CGV ne les couvrent pas.
-
-## CGV
-
-Page [app/cgv/page.tsx](app/cgv/page.tsx) en place. À faire :
-- **Médiation de la consommation : article retiré pour l'instant** (l'ancien article 12, supprimé
-  le 6 octobre 2026 ; les articles suivants ont été renumérotés). À remettre avant l'ouverture
-  aux clients : un professionnel qui vend à des consommateurs doit en principe leur garantir
-  l'accès à un médiateur (à faire confirmer). Il faut choisir un médiateur, puis réintroduire
-  l'article avec son nom, son site web et son adresse postale, et le droit de le saisir
-  gratuitement après démarche écrite préalable auprès de l'éditeur.
-- Les CGV ne couvrent que le pack à 3,99 € : les offres Pass hebdo et Illimité devront y
-  être ajoutées avant leur vrai branchement Stripe.
-- Faire relire la clause de rétractation (art. 6) par un juriste.
+Page [app/cgv/page.tsx](app/cgv/page.tsx) : version **brouillon** incluant Pass hebdomadaire,
+abonnement Illimité, durée/renouvellement/résiliation, usage raisonnable, accès par cookie et
+case de renonciation. Les passages `[À COMPLÉTER]` / `[À FAIRE VALIDER]` sont visibles sur la
+page : **ne pas déployer en production sans les avoir traités**.
+- Règle de remboursement d'un mois entamé, et information avant chaque reconduction tacite.
+- Obligations légales de reconduction tacite et de résiliation en ligne.
+- Case de renonciation à la rétractation pour Pass hebdo / abonnement : libellé et clause à
+  faire valider par un juriste (la perte du droit de rétractation d'un abonnement mensuel
+  n'est pas celle d'un pack ponctuel). Faire aussi relire l'article 8 (rétractation).
+- Procédure de récupération de l'accès par email, conséquences d'un abus d'usage.
+- **Médiation de la consommation : article retiré pour l'instant** (supprimé le 6 octobre
+  2026). À remettre avant l'ouverture aux clients : un professionnel qui vend à des
+  consommateurs doit en principe leur garantir l'accès à un médiateur (à faire confirmer). Il
+  faut choisir un médiateur, puis réintroduire l'article avec son nom, son site web et son
+  adresse postale, et le droit de le saisir gratuitement après démarche écrite préalable.
+- Date de mise en vigueur de la nouvelle version.
 
 ## Enregistrer l'acceptation des CGV côté serveur
 
 Aujourd'hui la case CGV n'est qu'une protection d'interface : rien n'est enregistré et le
-serveur ne vérifie rien. Pistes à décider (détail dans la discussion du 6 octobre 2026) :
+serveur ne vérifie rien. Pistes à décider :
 - `consent_collection[terms_of_service]=required` + `custom_text[terms_of_service_acceptance]`
   sur la session Checkout (consentement enregistré par Stripe : `consent.terms_of_service`) ;
   nécessite l'URL des CGV dans les informations publiques du compte Stripe.
@@ -66,12 +77,16 @@ serveur ne vérifie rien. Pistes à décider (détail dans la discussion du 6 oc
   mode **live** ; en test, Stripe n'envoie rien automatiquement, seulement des reçus manuels).
 - Décider comment envoyer une vraie confirmation de contrat (CGV + renonciation à la
   rétractation) : le reçu Stripe n'en tient pas lieu à lui seul. À faire valider par un juriste.
+- Passage en **live** : recréer les 3 prix, le webhook (avec les 4 événements) et la
+  configuration du Customer Portal en mode live, avec de nouvelles clés.
 
 ## Politique de confidentialité
 
-Page réécrite d'après le code réel ([app/confidentialite/page.tsx](app/confidentialite/page.tsx)).
-Marqueurs jaunes à lever :
+Page à jour avec le cookie d'accès, l'email et les données d'accès Pass/Illimité
+([app/confidentialite/page.tsx](app/confidentialite/page.tsx)). Marqueurs jaunes à lever :
 - `[À COMPLÉTER : durée à décider]` : durée de conservation des générations en base.
+- `[À COMPLÉTER]` : durée de conservation des données d'accès (email, statut, identifiants
+  Stripe) après la fin de l'accès.
 - `[À VÉRIFIER]` : base légale de la mesure d'audience (Vercel Analytics) ; région du projet
   Supabase ; région d'exécution des fonctions Vercel ; localisation du traitement et garanties
   de transfert hors UE pour Anthropic, Supabase, Vercel et Stripe ; conditions de rétention
@@ -82,7 +97,8 @@ Marqueurs jaunes à lever :
 Une fois la durée de conservation décidée, supprimer automatiquement les lignes anciennes de
 la table `generations` (Supabase). À noter : le rôle `service_role` n'a pas le droit DELETE
 sur cette table (voir [supabase/schema.sql](supabase/schema.sql)), il faudra l'accorder ou
-passer par une fonction/cron côté Supabase.
+passer par une fonction/cron côté Supabase. Même question pour la table `access` (aucun
+DELETE accordé non plus).
 
 ## Mentions légales
 
