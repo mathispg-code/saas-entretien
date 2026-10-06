@@ -1,11 +1,10 @@
 import { GENERIC_ERROR_MESSAGE, json, optionsResponse } from "../../lib/api-response";
 import { getAccessFromRequest } from "../../lib/access-session";
+import { SITE_URL } from "../../lib/site-url";
 import { stripe } from "../../lib/stripe";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const SITE_URL = process.env.SITE_URL ?? "http://localhost:3000";
 
 export async function OPTIONS(request: Request) {
   return optionsResponse(request);

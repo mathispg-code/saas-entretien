@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
+import { CANONICAL_ORIGIN } from "./lib/site";
 
-const BASE_URL = "https://candiview.fr";
+const BASE_URL = CANONICAL_ORIGIN;
 
 const ROUTES = [
   { path: "", changeFrequency: "weekly" as const, priority: 1 },

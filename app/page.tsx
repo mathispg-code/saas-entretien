@@ -5,6 +5,7 @@ import { SiteFooter } from "./components/SiteFooter";
 import { SideDecoration } from "./components/SideDecoration";
 import { RevealOnScroll } from "./components/RevealOnScroll";
 import { CheckIcon, ClockIcon, UserIcon, ZapIcon } from "./components/icons";
+import { CANONICAL_ORIGIN } from "./lib/site";
 
 const REASSURANCES = [
   { icon: CheckIcon, label: "Gratuit à tester" },
@@ -41,7 +42,7 @@ const JSON_LD = {
   name: "CandiView",
   description:
     "Générateur de questions d'entretien à partir d'une fiche de poste, avec conseils pour y répondre",
-  url: "https://candiview.fr",
+  url: CANONICAL_ORIGIN,
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
 };

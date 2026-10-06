@@ -1,16 +1,16 @@
 import { GENERIC_ERROR_MESSAGE, json, optionsResponse } from "../../lib/api-response";
 import { getActiveAccess } from "../../lib/access-session";
 import { getGeneration } from "../../lib/supabase";
+import { SITE_URL } from "../../lib/site-url";
 import { isCheckoutPlan, STRIPE_PRICE_IDS, stripe } from "../../lib/stripe";
 
 export const runtime = "nodejs";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-// URL de base utilisee pour les redirections apres paiement. Volontairement
-// une variable dediee plutot que l'en-tete Origin de la requete : celui-ci
-// est controlable par l'appelant, ce qui permettrait sinon de faire creer
-// une session Stripe avec une redirection de succes arbitraire.
-const SITE_URL = process.env.SITE_URL ?? "http://localhost:3000";
+// Les redirections apres paiement partent de SITE_URL (voir app/lib/site-url.ts)
+// et jamais de l'en-tete Origin de la requete, controlable par l'appelant : il
+// permettrait sinon de faire creer une session Stripe avec une redirection de
+// succes arbitraire.
 
 export async function OPTIONS(request: Request) {
   return optionsResponse(request);

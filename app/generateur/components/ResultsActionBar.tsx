@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { Download, Share2 } from "lucide-react";
 import { SpinnerIcon } from "../../components/icons";
+import { CANONICAL_ORIGIN } from "../../lib/site";
 import { downloadInterviewPdf } from "../lib/generatePdf";
 import { UnlockBanner } from "./UnlockBanner";
 import type { Analyse, Question, QuestionAPoser } from "../types";
 
 const SHARE_TEXT =
   "J'ai préparé mon entretien avec CandiView, l'outil gratuit de génération de questions d'entretien.";
-const SHARE_URL = "https://candiview.fr";
+const SHARE_URL = CANONICAL_ORIGIN;
 
 export function ResultsActionBar({
   questions,

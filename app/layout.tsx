@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
+import { CANONICAL_ORIGIN } from "./lib/site";
 import "./globals.css";
 
 const TITLE = "CandiView – Prépare tes entretiens, gagne en confiance";
@@ -7,7 +8,7 @@ const DESCRIPTION =
   "Colle une fiche de poste, reçois des questions d'entretien ciblées et des conseils pour y répondre sereinement. Simple et rapide.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://candiview.fr"),
+  metadataBase: new URL(CANONICAL_ORIGIN),
   title: TITLE,
   description: DESCRIPTION,
   openGraph: {
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     type: "website",
     locale: "fr_FR",
-    url: "https://candiview.fr",
+    url: CANONICAL_ORIGIN,
   },
   twitter: {
     card: "summary_large_image",
