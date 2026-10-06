@@ -8,10 +8,13 @@
 // fuitait par erreur sur Vercel :
 // - VERCEL est injecte automatiquement par Vercel sur toute fonction
 //   deployee (Production, Preview, meme `vercel dev`).
+// - VERCEL_ENV vaut "production" sur le deploiement de production Vercel
+//   (verifie explicitement en plus de VERCEL, par ceinture et bretelles).
 // - NODE_ENV vaut "production" des que le code tourne en vrai build de prod
 //   (`next build && next start`), meme hors Vercel.
 export function isPaywallBypassed(): boolean {
   if (process.env.VERCEL) return false;
+  if (process.env.VERCEL_ENV === "production") return false;
   if (process.env.NODE_ENV === "production") return false;
   return process.env.BYPASS_PAYWALL === "true";
 }

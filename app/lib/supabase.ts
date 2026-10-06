@@ -131,3 +131,24 @@ export async function markGenerationPaid(
 
   return true;
 }
+
+/**
+ * Lecture minimale (1 ligne, colonne id) pour garder le projet Supabase
+ * actif : le plan gratuit met en pause un projet sans activite. N'ecrit rien
+ * et ne renvoie aucune donnee. Leve une exception si Supabase est
+ * injoignable, pour que la route de cron renvoie une erreur visible.
+ */
+export async function pingDatabase(): Promise<void> {
+  if (!supabase) {
+    throw new Error(
+      "Supabase non configuré (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY manquants).",
+    );
+  }
+
+  const { error } = await supabase.from("generations").select("id").limit(1);
+
+  if (error) {
+    console.error("Échec du ping Supabase (keep-alive):", error);
+    throw new Error("Ping Supabase impossible.");
+  }
+}
