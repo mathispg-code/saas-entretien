@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Download, FileText, Lock, Sparkles, Unlock, X } from "lucide-react";
 import { SpinnerIcon } from "../../components/icons";
 import { startPlanCheckout } from "../../lib/access-client";
+import { OFFERS_ENABLED } from "../../lib/offers";
 import { startCheckout } from "../lib/checkout";
 import { GENERIC_ERROR_MESSAGE } from "../types";
 
@@ -230,6 +231,8 @@ export function UnlockModal({
               </div>
             </div>
 
+            {/* Illimité : retiré de l'offre (voir app/lib/offers.ts), logique conservée. */}
+            {OFFERS_ENABLED.mensuel && (
             <div className="relative rounded-2xl border-2 border-emerald-400 bg-emerald-500/10 p-3">
               <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-emerald-500 px-3 py-0.5 text-[10px] font-bold uppercase tracking-wide text-navy-950">
                 Populaire
@@ -251,6 +254,7 @@ export function UnlockModal({
                 </button>
               </div>
             </div>
+            )}
             {error && <p className="text-center text-xs text-rose-300">{error}</p>}
           </div>
 

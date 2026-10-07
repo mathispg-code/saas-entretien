@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { SiteHeader } from "../components/SiteHeader";
 import { SiteFooter } from "../components/SiteFooter";
+import { OFFERS_ENABLED } from "../lib/offers";
 import { MonAccesClient } from "./MonAccesClient";
 
 export const metadata: Metadata = {
@@ -19,8 +20,9 @@ export default function MonAccesPage() {
           Mon accès
         </h1>
         <p className="mt-2 text-sm text-slate-600">
-          Retrouve l&apos;état de ton Pass hebdomadaire ou de ton abonnement Illimité, sans mot de
-          passe ni compte.
+          {OFFERS_ENABLED.mensuel
+            ? "Retrouve l'état de ton Pass hebdomadaire ou de ton abonnement Illimité, sans mot de passe ni compte."
+            : "Retrouve l'état de ton Pass hebdomadaire, sans mot de passe ni compte."}
         </p>
 
         <MonAccesClient />

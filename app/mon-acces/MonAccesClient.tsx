@@ -12,6 +12,7 @@ import {
   type AccessStatus,
 } from "../lib/access-client";
 import { GENERIC_ERROR_MESSAGE } from "../generateur/types";
+import { OFFERS_ENABLED } from "../lib/offers";
 
 const PLAN_LABELS = { hebdo: "Pass hebdomadaire", mensuel: "Illimité (abonnement)" } as const;
 
@@ -146,8 +147,9 @@ function RecoveryForm() {
       <div className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-slate-700 shadow-sm">
         <p className="font-semibold text-navy-900">Demande envoyée</p>
         <p className="mt-2">
-          Si cette adresse correspond à un achat en cours (Pass hebdomadaire valide ou abonnement
-          actif), un email contenant un lien valable 15 minutes vient de t&apos;être envoyé. Pense à
+          Si cette adresse correspond à un achat en cours (
+          {OFFERS_ENABLED.mensuel ? "Pass hebdomadaire valide ou abonnement actif" : "Pass hebdomadaire valide"}
+          ), un email contenant un lien valable 15 minutes vient de t&apos;être envoyé. Pense à
           vérifier tes courriers indésirables.
         </p>
         <p className="mt-2 text-xs text-slate-500">

@@ -29,6 +29,7 @@ import {
   fetchAccessStatus,
   type AccessStatus,
 } from "../lib/access-client";
+import { OFFERS_ENABLED } from "../lib/offers";
 import { hasSeenUnlockModal, markUnlockModalSeen } from "../lib/unlock-modal-seen";
 import { AccessStatusBar } from "./components/AccessStatusBar";
 import { AnalyseCard } from "./components/AnalyseCard";
@@ -887,13 +888,25 @@ export default function GenerateurPage() {
                 </span>
                 <span className="flex-none font-semibold text-navy-900">3,99 €</span>
               </div>
-              <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm">
-                <span className="text-slate-700">
-                  <span className="font-semibold text-navy-900">Illimité</span> — toutes tes
-                  candidatures
-                </span>
-                <span className="flex-none font-semibold text-emerald-700">9,99 € / mois</span>
-              </div>
+              {OFFERS_ENABLED.hebdo && (
+                <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm">
+                  <span className="text-slate-700">
+                    <span className="font-semibold text-navy-900">Pass hebdomadaire</span> —
+                    toutes tes candidatures pendant 7 jours
+                  </span>
+                  <span className="flex-none font-semibold text-emerald-700">6,99 €</span>
+                </div>
+              )}
+              {/* Illimité : retiré de l'offre (voir app/lib/offers.ts), logique conservée. */}
+              {OFFERS_ENABLED.mensuel && (
+                <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm">
+                  <span className="text-slate-700">
+                    <span className="font-semibold text-navy-900">Illimité</span> — toutes tes
+                    candidatures
+                  </span>
+                  <span className="flex-none font-semibold text-emerald-700">9,99 € / mois</span>
+                </div>
+              )}
             </div>
 
             <Link

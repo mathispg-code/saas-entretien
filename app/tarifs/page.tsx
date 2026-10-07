@@ -4,15 +4,29 @@ import { SiteHeader } from "../components/SiteHeader";
 import { SiteFooter } from "../components/SiteFooter";
 import { RevealOnScroll } from "../components/RevealOnScroll";
 import { CheckIcon } from "../components/icons";
+import { isOfferEnabled, type OfferId } from "../lib/offers";
 import { PricingButton } from "./components/PricingButton";
 
 export const metadata: Metadata = {
   title: "Tarifs — CandiView",
 };
 
-const PLANS = [
+const PLANS: {
+  id: "fiche-unique" | "pass-hebdo" | "illimite";
+  // Offre correspondante dans app/lib/offers.ts : seules les offres ouvertes
+  // a la vente sont affichees.
+  offer: OfferId;
+  name: string;
+  price: string;
+  period: string;
+  description: string;
+  features: string[];
+  cta: string;
+  featured: boolean;
+}[] = [
   {
-    id: "fiche-unique" as const,
+    id: "fiche-unique",
+    offer: "unique",
     name: "Fiche unique",
     price: "3,99 €",
     period: "paiement unique",
@@ -27,7 +41,8 @@ const PLANS = [
     featured: false,
   },
   {
-    id: "pass-hebdo" as const,
+    id: "pass-hebdo",
+    offer: "hebdo",
     name: "Pass hebdomadaire",
     price: "6,99 €",
     // Paiement unique (comme "Fiche unique"), pas un abonnement : donne un
@@ -47,8 +62,11 @@ const PLANS = [
     cta: "Choisir cette offre",
     featured: false,
   },
+  // Illimite : RETIRE de l'offre (app/lib/offers.ts), non affiche tant que
+  // OFFERS_ENABLED.mensuel est false. Definition conservee pour la remise en vente.
   {
-    id: "illimite" as const,
+    id: "illimite",
+    offer: "mensuel",
     name: "Illimité",
     price: "9,99 €",
     period: "/ mois",
@@ -64,13 +82,18 @@ const PLANS = [
   },
 ];
 
-// Pass hebdo et Illimite sont branches a Stripe (mode test pour l'instant,
-// CGV encore en brouillon — voir TODO.md). Passer ce drapeau a false les
-// masque a nouveau et ne laisse que la Fiche unique, sans autre modification.
-const SHOW_ALL_PLANS = true;
-
-const VISIBLE_PLANS = PLANS.filter((plan) => SHOW_ALL_PLANS || plan.id === "fiche-unique");
+const VISIBLE_PLANS = PLANS.filter((plan) => isOfferEnabled(plan.offer));
 const SINGLE_PLAN = VISIBLE_PLANS.length === 1;
+// Offres illimitees vendues (Pass hebdomadaire et/ou abonnement) : sert au texte
+// de la note "usage raisonnable".
+const SELLS_UNLIMITED = VISIBLE_PLANS.some((plan) => plan.offer !== "unique");
+const SELLS_SUBSCRIPTION = isOfferEnabled("mensuel");
+
+function gridClass(count: number): string {
+  if (count <= 1) return "mx-auto mt-12 max-w-md";
+  if (count === 2) return "mx-auto mt-12 grid max-w-3xl grid-cols-1 gap-6 md:grid-cols-2";
+  return "mt-12 grid grid-cols-1 gap-6 lg:grid-cols-3";
+}
 
 export default function TarifsPage() {
   return (
@@ -95,19 +118,15 @@ export default function TarifsPage() {
                   Choisis la formule qui te <span className="text-emerald-500">correspond</span>
                 </h1>
                 <p className="mx-auto mt-3 max-w-xl text-sm text-slate-600 sm:text-base">
-                  Une candidature ponctuelle ou une recherche active : à toi de choisir le rythme.
+                  {SELLS_SUBSCRIPTION
+                    ? "Une candidature ponctuelle ou une recherche active : à toi de choisir le rythme."
+                    : "Une candidature ponctuelle ou une recherche active : paiement unique, sans abonnement ni compte à créer."}
                 </p>
               </>
             )}
           </RevealOnScroll>
 
-          <div
-            className={
-              SINGLE_PLAN
-                ? "mx-auto mt-12 max-w-md"
-                : "mt-12 grid grid-cols-1 gap-6 lg:grid-cols-3"
-            }
-          >
+          <div className={gridClass(VISIBLE_PLANS.length)}>
             {VISIBLE_PLANS.map((plan, i) => (
               <RevealOnScroll key={plan.id} delayMs={i * 100}>
                 <div
@@ -155,11 +174,12 @@ export default function TarifsPage() {
             ))}
           </div>
 
-          {!SINGLE_PLAN && (
+          {SELLS_UNLIMITED && (
             <p className="mx-auto mt-8 max-w-2xl text-center text-xs text-slate-500">
-              Usage raisonnable : les offres illimitées s&apos;entendent dans le cadre d&apos;un
-              usage personnel normal ; en cas d&apos;usage manifestement abusif, la génération peut
-              être temporairement limitée (voir les{" "}
+              Usage raisonnable :{" "}
+              {SELLS_SUBSCRIPTION ? "les offres illimitées s'entendent" : "le Pass hebdomadaire s'entend"}{" "}
+              dans le cadre d&apos;un usage personnel normal ; en cas d&apos;usage manifestement
+              abusif, la génération peut être temporairement limitée (voir les{" "}
               <Link href="/cgv" className="font-medium underline hover:text-slate-700">
                 CGV
               </Link>
