@@ -8,6 +8,9 @@ const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
 export const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
 
+/** Vrai avec une cle Stripe de production (sk_live_ ou rk_live_) : paiements reels. */
+export const STRIPE_LIVE_MODE = /^(sk|rk)_live_/.test(stripeSecretKey ?? "");
+
 /** Offres vendues via Stripe Checkout. */
 export type CheckoutPlan = "unique" | "hebdo" | "mensuel";
 

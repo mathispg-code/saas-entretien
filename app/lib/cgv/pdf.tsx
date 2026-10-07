@@ -61,7 +61,7 @@ function renderInline(inline: Inline, key: number): ReactNode {
       // Dans un PDF, l'adresse complete reste lisible meme imprimee.
       return `${inline.text} (${CANONICAL_ORIGIN}${inline.href})`;
     case "mark":
-      return `[${inline.kind} : ${inline.label}]`;
+      return inline.label ? `[${inline.kind} : ${inline.label}]` : `[${inline.kind}]`;
     case "br":
       return "\n";
     case "consent":

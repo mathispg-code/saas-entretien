@@ -1,14 +1,15 @@
 import { GENERIC_ERROR_MESSAGE, json, optionsResponse } from "../../lib/api-response";
 import { getActiveAccess } from "../../lib/access-session";
-import { CGV_VERSION } from "../../lib/cgv";
+import { CGV_VERSION, cgvVersionHasDraftMarkers } from "../../lib/cgv";
 import {
   consentMessageForStripe,
   consentTextIdForPlan,
   type CheckoutPlanId,
 } from "../../lib/consent";
+import { isOfferEnabled } from "../../lib/offers";
 import { getGeneration } from "../../lib/supabase";
 import { SITE_URL } from "../../lib/site-url";
-import { isCheckoutPlan, STRIPE_PRICE_IDS, stripe } from "../../lib/stripe";
+import { isCheckoutPlan, STRIPE_LIVE_MODE, STRIPE_PRICE_IDS, stripe } from "../../lib/stripe";
 
 export const runtime = "nodejs";
 
@@ -58,6 +59,19 @@ export async function POST(request: Request) {
   const plan = body.plan ?? "unique";
   if (!isCheckoutPlan(plan)) {
     return json({ error: "Offre inconnue." }, 400, origin);
+  }
+
+  // Offre retiree de la vente (voir app/lib/offers.ts) : refusee cote serveur,
+  // pas seulement masquee dans l'interface.
+  if (!isOfferEnabled(plan)) {
+    return json({ error: "Cette offre n'est plus disponible." }, 400, origin);
+  }
+
+  // Garde-fou : en mode REEL, aucune vente tant que les CGV en vigueur
+  // contiennent un marqueur de brouillon (ex. [MÉDIATEUR À CHOISIR]).
+  if (STRIPE_LIVE_MODE && cgvVersionHasDraftMarkers(CGV_VERSION)) {
+    console.error("Paiement réel refusé : les CGV en vigueur contiennent encore un marqueur à traiter.");
+    return json({ error: "Les paiements ne sont pas encore ouverts." }, 503, origin);
   }
 
   const priceId = STRIPE_PRICE_IDS[plan];

@@ -5,7 +5,8 @@ import type { ConsentTextId } from "../consent";
  * /cgv et le PDF joint a l'email de confirmation de commande. Chaque version
  * publiee est un fichier FIGE (voir app/lib/cgv/index.ts).
  */
-export type MarkKind = "À COMPLÉTER" | "À FAIRE VALIDER";
+// "MÉDIATEUR À CHOISIR" s'affiche seul, sans libelle : [MÉDIATEUR À CHOISIR].
+export type MarkKind = "À COMPLÉTER" | "À FAIRE VALIDER" | "MÉDIATEUR À CHOISIR";
 
 export type Inline =
   | string

@@ -5,10 +5,13 @@ import type { OutgoingEmail } from "./email";
  * (support durable : le recapitulatif, le rappel du consentement et les CGV de
  * la version de l'achat en PDF joint). Fonction pure : memes donnees = meme
  * email, ce qui garantit qu'un envoi rejoue (cle d'idempotence Resend) a le
- * meme contenu. Vouvoiement. Les passages juridiques encore a valider portent
- * des marqueurs [À COMPLÉTER : ...] / [À FAIRE VALIDER : ...] (voir TODO.md).
+ * meme contenu. Vouvoiement. Les clauses sont alignees sur les CGV du
+ * 7 octobre 2026 (voir app/lib/cgv/versions/2026-10-07.ts).
+ *
+ * Seul marqueur restant : [MÉDIATEUR À CHOISIR] (bloquant : en mode reel,
+ * l'email n'est jamais envoye tant qu'il contient un marqueur).
  */
-export const CONTRACT_EMAIL_TEMPLATE_ID = "confirmation-contrat-v1";
+export const CONTRACT_EMAIL_TEMPLATE_ID = "confirmation-contrat-v2";
 
 export type ContractPlan = "unique" | "hebdo" | "mensuel";
 
@@ -29,7 +32,8 @@ export type ContractEmailInput = {
 
 const EDITOR_LINES = [
   "Mathis Pichon-Girodie, entrepreneur individuel (micro-entrepreneur), nom commercial CandiView",
-  "SIREN : 109 791 426 — RCS Paris",
+  "SIREN : 109 791 426 — SIRET : 109 791 426 00017",
+  "Immatriculé au RCS de Paris, n° 109 791 426",
   "173 rue de Courcelles, 75017 Paris",
   "contact@candiview.fr",
 ];
@@ -44,7 +48,7 @@ const DEFAULT_PRICE_CENTS: Record<ContractPlan, number> = { unique: 399, hebdo: 
 
 // Presence d'un marqueur de brouillon : en mode reel (livemode), l'email n'est
 // jamais envoye tant qu'il en contient (voir contract-confirmation.ts).
-const DRAFT_MARKER = /\[À (?:COMPLÉTER|FAIRE VALIDER) :/;
+const DRAFT_MARKER = /\[(?:À (?:COMPLÉTER|FAIRE VALIDER) :|MÉDIATEUR À CHOISIR\])/;
 export function containsDraftMarkers(text: string): boolean {
   return DRAFT_MARKER.test(text);
 }
@@ -64,6 +68,9 @@ function formatPrice(cents: number, currency: string): string {
 
 type Section = { heading: string; paragraphs: string[]; bullets?: string[] };
 
+const RETRACTATION_FALLBACK =
+  "Si, pour quelque motif que ce soit, cette renonciation ne pouvait vous être opposée, vous pourriez exercer votre droit de rétractation dans un délai de 14 jours à compter de la conclusion du contrat, en écrivant à contact@candiview.fr avec votre référence de commande ; vous devriez alors payer un montant proportionnel au service déjà fourni (article L221-25 du Code de la consommation). Un modèle de formulaire de rétractation figure en annexe des conditions générales de vente jointes.";
+
 function buildSections(input: ContractEmailInput): { intro: string; sections: Section[]; closing: string } {
   const price = formatPrice(
     input.amountCents ?? DEFAULT_PRICE_CENTS[input.plan],
@@ -82,6 +89,8 @@ function buildSections(input: ContractEmailInput): { intro: string; sections: Se
       }. Il s'arrête automatiquement, sans reconduction ni nouveau prélèvement.`,
     );
   } else {
+    // Illimité : retiré de l'offre (voir app/lib/offers.ts). Texte conservé pour
+    // une éventuelle remise en vente, à revalider avec les CGV d'abonnement.
     offer.push(
       "L'abonnement Illimité donne un accès illimité (dans la limite de l'usage raisonnable décrit dans les conditions générales de vente) à toutes les fonctionnalités. Il est conclu pour un mois et renouvelé tacitement chaque mois jusqu'à sa résiliation.",
     );
@@ -94,19 +103,20 @@ function buildSections(input: ContractEmailInput): { intro: string; sections: Se
   }
 
   const withdrawal: string[] =
-    input.plan === "mensuel"
+    input.plan === "unique"
       ? [
-          "Vous disposez en principe d'un délai de 14 jours à compter de la conclusion du contrat pour vous rétracter (article L221-18 du Code de la consommation). Vous avez demandé l'accès immédiat au service : si vous vous rétractez dans ce délai, vous paierez le service déjà utilisé.",
-          "Pour vous rétracter, écrivez à contact@candiview.fr en indiquant votre référence de commande.",
-          "[À FAIRE VALIDER : mécanisme de paiement proportionnel et formulation pour l'abonnement mensuel]",
+          "Vous avez demandé l'exécution immédiate du service et renoncé expressément à votre droit de rétractation en cochant la case de la page de paiement, conformément à l'article L221-28, 13° du Code de la consommation (contenu numérique fourni sans support matériel dont l'exécution a commencé après votre accord préalable exprès).",
+          RETRACTATION_FALLBACK,
         ]
-      : [
-          "Conformément à votre demande d'accès immédiat au service, vous avez reconnu perdre votre droit de rétractation une fois le service exécuté (articles L221-18 et L221-28 du Code de la consommation).",
-          "[À FAIRE VALIDER : formulation de la renonciation pour un service numérique fourni immédiatement]",
-        ];
-  withdrawal.push(
-    "[À COMPLÉTER : modèle de formulaire de rétractation (annexe de l'article R221-1 du Code de la consommation), si requis pour cette offre]",
-  );
+      : input.plan === "hebdo"
+        ? [
+            "Vous avez demandé l'exécution immédiate du service et renoncé expressément à votre droit de rétractation en cochant la case de la page de paiement, conformément à l'article L221-28, 1° du Code de la consommation (service pleinement exécuté à l'issue des 7 jours d'accès, avant la fin du délai de rétractation, et dont l'exécution a commencé après votre accord préalable exprès).",
+            RETRACTATION_FALLBACK,
+          ]
+        : [
+            "Vous disposez en principe d'un délai de 14 jours à compter de la conclusion du contrat pour vous rétracter (article L221-18 du Code de la consommation). Vous avez demandé l'accès immédiat au service : si vous vous rétractez dans ce délai, vous paierez le service déjà utilisé (article L221-25).",
+            "Pour vous rétracter, écrivez à contact@candiview.fr en indiquant votre référence de commande. Un modèle de formulaire de rétractation figure en annexe des conditions générales de vente jointes.",
+          ];
 
   const access =
     input.plan === "unique"
@@ -145,7 +155,8 @@ function buildSections(input: ContractEmailInput): { intro: string; sections: Se
       {
         heading: "Médiation de la consommation",
         paragraphs: [
-          "[À COMPLÉTER : coordonnées du médiateur de la consommation (nom, site web, adresse postale)]",
+          "Conformément à l'article L612-1 du Code de la consommation, vous avez le droit de recourir gratuitement à un médiateur de la consommation en cas de litige, après avoir tenté de le résoudre directement auprès de nous (contact@candiview.fr).",
+          "Médiateur de la consommation compétent : [MÉDIATEUR À CHOISIR]",
         ],
       },
       { heading: "Éditeur", paragraphs: [], bullets: EDITOR_LINES },
@@ -165,7 +176,7 @@ function escapeHtml(value: string): string {
 // Surligne les marqueurs de brouillon dans la version HTML.
 function htmlWithMarkers(value: string): string {
   return escapeHtml(value).replace(
-    /\[(À (?:COMPLÉTER|FAIRE VALIDER) : [^\]]*)\]/g,
+    /\[((?:À (?:COMPLÉTER|FAIRE VALIDER) : [^\]]*)|MÉDIATEUR À CHOISIR)\]/g,
     '<mark style="background:#fef3c7;color:#92400e;font-weight:bold;padding:0 3px;border-radius:3px">[$1]</mark>',
   );
 }

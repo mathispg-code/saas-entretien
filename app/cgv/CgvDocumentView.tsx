@@ -7,6 +7,12 @@ const CONTACT_EMAIL = "contact@candiview.fr";
 // Marqueur visible pour tout passage encore a completer ou a faire valider
 // par un juriste avant l'ouverture au public (voir TODO.md).
 function Mark({ kind, label }: { kind: MarkKind; label: string }) {
+  // Marqueur sans libelle (ex. [MÉDIATEUR À CHOISIR]) : affiche le type seul.
+  if (!label) {
+    return (
+      <mark className="rounded bg-amber-100 px-1 font-semibold text-amber-800">[{kind}]</mark>
+    );
+  }
   return (
     <mark className="rounded bg-amber-100 px-1 font-semibold text-amber-800">
       [{kind} : {label}]
