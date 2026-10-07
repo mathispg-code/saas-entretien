@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { consentPlainText } from "../consent";
 import { cgv20261006 } from "./versions/2026-10-06";
 import { cgv20261007 } from "./versions/2026-10-07";
+import { cgv20261008 } from "./versions/2026-10-08";
 import type { CgvDocument, Inline } from "./types";
 
 /**
@@ -30,12 +31,19 @@ export const CGV_REGISTRY: CgvRegistryEntry[] = [
     document: cgv20261006,
     contentHash: "539ff30c3c38aab01b87dd0a98ae4cc6c8e778f05a8ee909c109f79410fc649e",
   },
-  // Fiche unique + Pass hebdomadaire (Illimite retire), version propre : seul
-  // marqueur restant [MÉDIATEUR À CHOISIR].
+  // Fiche unique + Pass hebdomadaire (Illimite retire), version propre avec
+  // l'article de mediation (marqueur [MÉDIATEUR À CHOISIR]) : jamais utilisee
+  // pour un achat reel, remplacee par 2026-10-08.
   {
     version: "2026-10-07",
     document: cgv20261007,
     contentHash: "543ed3656bdbb2e943f9f22cf723c103534cc4fb3f7c08ca03e83a8cdd404f64",
+  },
+  // Meme version sans l'article de mediation : plus aucun marqueur de brouillon.
+  {
+    version: "2026-10-08",
+    document: cgv20261008,
+    contentHash: "6de8995645da6dafa2ebcb0f9d8d57538d05949b5f9ca6c5916bd259848c1b47",
   },
 ];
 

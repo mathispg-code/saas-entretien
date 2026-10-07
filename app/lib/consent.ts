@@ -24,7 +24,7 @@ const CONSENT_TEMPLATES: Record<ConsentTextId, string> = {
   // Fiche unique et Pass hebdomadaire, jusqu'aux CGV du 6 octobre 2026 (plus utilise).
   "ponctuel-v1":
     "J'accepte les {cgv} et je demande l'accès immédiat : je renonce à mon droit de rétractation.",
-  // Fiche unique et Pass hebdomadaire (paiement unique), CGV du 7 octobre 2026.
+  // Fiche unique et Pass hebdomadaire (paiement unique), CGV d'octobre 2026.
   "ponctuel-v2":
     "J'accepte les {cgv}, je demande l'exécution immédiate du service et je renonce expressément à mon droit de rétractation.",
   // Illimité (abonnement mensuel), retire de l'offre : voir app/lib/offers.ts.

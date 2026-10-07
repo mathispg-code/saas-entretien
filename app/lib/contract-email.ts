@@ -6,12 +6,13 @@ import type { OutgoingEmail } from "./email";
  * la version de l'achat en PDF joint). Fonction pure : memes donnees = meme
  * email, ce qui garantit qu'un envoi rejoue (cle d'idempotence Resend) a le
  * meme contenu. Vouvoiement. Les clauses sont alignees sur les CGV du
- * 7 octobre 2026 (voir app/lib/cgv/versions/2026-10-07.ts).
+ * 8 octobre 2026 (voir app/lib/cgv/versions/2026-10-08.ts), sans bloc de
+ * mediation (non exige pour l'instant, voir TODO.md).
  *
- * Seul marqueur restant : [MÉDIATEUR À CHOISIR] (bloquant : en mode reel,
- * l'email n'est jamais envoye tant qu'il contient un marqueur).
+ * Aucun marqueur de brouillon restant ; le garde-fou demeure : en mode reel,
+ * l'email n'est jamais envoye s'il en contient un.
  */
-export const CONTRACT_EMAIL_TEMPLATE_ID = "confirmation-contrat-v2";
+export const CONTRACT_EMAIL_TEMPLATE_ID = "confirmation-contrat-v3";
 
 export type ContractPlan = "unique" | "hebdo" | "mensuel";
 
@@ -150,13 +151,6 @@ function buildSections(input: ContractEmailInput): { intro: string; sections: Se
         heading: "Conditions générales de vente",
         paragraphs: [
           `Les conditions générales de vente (version du ${input.cgvVersionLabel}), en vigueur à la date de votre commande, sont jointes à cet email au format PDF. Conservez ce message.`,
-        ],
-      },
-      {
-        heading: "Médiation de la consommation",
-        paragraphs: [
-          "Conformément à l'article L612-1 du Code de la consommation, vous avez le droit de recourir gratuitement à un médiateur de la consommation en cas de litige, après avoir tenté de le résoudre directement auprès de nous (contact@candiview.fr).",
-          "Médiateur de la consommation compétent : [MÉDIATEUR À CHOISIR]",
         ],
       },
       { heading: "Éditeur", paragraphs: [], bullets: EDITOR_LINES },

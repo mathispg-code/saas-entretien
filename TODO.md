@@ -8,22 +8,31 @@ Toute sa logique reste en place (checkout en mode abonnement, webhook, portail, 
 drapeau `OFFERS_ENABLED.mensuel` dans [app/lib/offers.ts](app/lib/offers.ts) (voir « Réactiver
 Illimité » plus bas).
 
-CGV en vigueur : version figée **`2026-10-07`** ([app/lib/cgv/versions/2026-10-07.ts](app/lib/cgv/versions/2026-10-07.ts)),
-version propre (clauses standard pour la vente de contenu numérique à des particuliers).
+CGV en vigueur : version figée **`2026-10-08`** ([app/lib/cgv/versions/2026-10-08.ts](app/lib/cgv/versions/2026-10-08.ts)),
+version propre (clauses standard pour la vente de contenu numérique à des particuliers), **sans aucun
+marqueur de brouillon** et sans article de médiation. La version `2026-10-07` (avec l'article de
+médiation) n'a jamais servi pour un achat réel ; elle reste figée dans le registre.
 Case Stripe : texte `ponctuel-v2` ([app/lib/consent.ts](app/lib/consent.ts)). Email de confirmation :
-modèle `confirmation-contrat-v2` ([app/lib/contract-email.ts](app/lib/contract-email.ts)).
+modèle `confirmation-contrat-v3` ([app/lib/contract-email.ts](app/lib/contract-email.ts)).
 
-### Marqueurs restants (à lever avant d'encaisser pour de vrai)
-- **`[MÉDIATEUR À CHOISIR]`** — seul marqueur des CGV, dans
-  [app/lib/cgv/versions/2026-10-07.ts](app/lib/cgv/versions/2026-10-07.ts) (article 16) ; même marqueur
-  dans l'email de confirmation, [app/lib/contract-email.ts](app/lib/contract-email.ts) (bloc « Médiation »).
-  Choisir un médiateur de la consommation, puis **publier une nouvelle version des CGV** (nouveau fichier
-  de version daté, nouvelle entrée en dernière position de [app/lib/cgv/index.ts](app/lib/cgv/index.ts),
-  sans jamais modifier `2026-10-07`) et remplacer le marqueur dans l'email (nouveau modèle).
-- **Garde-fous automatiques** : tant qu'un marqueur existe dans les CGV en vigueur, `/api/checkout` refuse
-  tout paiement en **mode réel** (clé `sk_live_`, réponse 503) ; en mode réel, l'email de confirmation
-  n'est jamais envoyé s'il contient un marqueur (statut `failed_permanent` / `draft_markers`). Les paiements
-  en mode test ne sont pas concernés.
+### Marqueurs restants
+Aucun dans les CGV ni dans l'email de confirmation. Seuls restent ceux de la politique de confidentialité
+(voir plus bas), qui ne bloquent pas les paiements.
+- **Garde-fous automatiques conservés** : s'il existe un jour un marqueur dans les CGV en vigueur,
+  `/api/checkout` refuse tout paiement en **mode réel** (clé `sk_live_`, réponse 503) ; en mode réel,
+  l'email de confirmation n'est jamais envoyé s'il contient un marqueur (statut `failed_permanent` /
+  `draft_markers`). Les paiements en mode test ne sont pas concernés.
+
+### Médiation de la consommation (non bloquant, à ajouter plus tard)
+La CCI a indiqué qu'on peut continuer sans médiateur pour l'instant : l'article de médiation a été retiré
+des CGV (`2026-10-08`) et de l'email de confirmation. À faire plus tard : choisir un médiateur de la
+consommation, puis **publier une nouvelle version des CGV** (nouveau fichier de version daté, nouvelle
+entrée en dernière position de [app/lib/cgv/index.ts](app/lib/cgv/index.ts), sans jamais modifier une
+version déjà utilisée) avec l'article de médiation (art. L612-1 : coordonnées du médiateur), ajouter le
+bloc correspondant à l'email de confirmation (nouveau modèle) et le mentionner sur le site. Point à
+confirmer par écrit avec la CCI / la DGCCRF : l'obligation de garantir au consommateur le recours à un
+médiateur est en principe applicable à tout professionnel vendant à des particuliers, micro-entrepreneur
+compris.
 - Politique de confidentialité ([app/confidentialite/page.tsx](app/confidentialite/page.tsx)) : voir la section
   dédiée plus bas (durées de conservation, localisations, bases légales à confirmer).
 
@@ -34,7 +43,7 @@ modèle `confirmation-contrat-v2` ([app/lib/contract-email.ts](app/lib/contract-
   repli sur le paiement proportionnel art. L221-25), l'article 11 (responsabilité) et le texte de la case.
 - **Modèle de formulaire de rétractation** (annexe des CGV) : transcrit de mémoire du modèle officiel
   (annexe à l'article R221-1 du Code de la consommation) : à comparer avec le texte officiel sur Légifrance.
-- Citations d'articles du Code de la consommation utilisées : L221-18, L221-25, L221-28 (1° et 13°), L612-1.
+- Citations d'articles du Code de la consommation utilisées : L221-18, L221-25, L221-28 (1° et 13°).
 
 ## Pass hebdomadaire : accès par cookie (code en place) — à finir avant le live
 
