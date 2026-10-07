@@ -129,11 +129,11 @@ confirmer quand le temps le permet (non bloquant) :
   « Suppression automatique » ci-dessous.
 - **Resend** : la page affirme que le domaine d'envoi est en région UE (noté « région UE » lors de la
   configuration) : le vérifier dans le tableau de bord Resend.
-- **Anthropic** : la page reprend, avec la mention « selon les conditions commerciales d'Anthropic », l'absence
-  d'entraînement sur les données de l'API et une conservation limitée : relire les conditions et la page de
-  rétention d'Anthropic en vigueur.
-- **Supabase** : la page reste volontairement générale (région UE ou hors UE). Une fois la région du projet
-  connue (Project settings), la citer précisément.
+- **Anthropic** : la page n'affirme rien sur l'entraînement ni la conservation ; elle renvoie vers les
+  conditions commerciales et la politique de confidentialité d'Anthropic (liens à revérifier de temps en
+  temps).
+- **Supabase** : région du projet indiquée par le propriétaire : eu-west-3 (Paris). La page l'annonce ; à
+  corriger si le projet de production est différent ou migré.
 - **Vercel** : la page indique une exécution « par défaut aux États-Unis » ; à ajuster si la région des
   fonctions est changée (ou après une éventuelle migration d'hébergeur).
 - **Transferts hors UE** : formulation générale (clauses contractuelles types et/ou cadre UE–États-Unis, « selon

@@ -213,17 +213,35 @@ export default function Confidentialite() {
                 <strong>Anthropic</strong> — génération des questions. Reçoit la
                 fiche de poste et le CV que tu fournis. Anthropic est établie aux
                 États-Unis : le traitement peut avoir lieu hors de l&apos;Union
-                européenne. Selon les conditions commerciales d&apos;Anthropic, les
-                données envoyées par l&apos;API ne servent pas à entraîner ses
-                modèles et ne sont conservées que pour une durée limitée, définie
-                par Anthropic.
+                européenne. L&apos;usage et la conservation de ces données par
+                Anthropic sont régis par ses propres documents, auxquels nous te
+                renvoyons :{" "}
+                <a
+                  href="https://www.anthropic.com/legal/commercial-terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-emerald-600 underline hover:text-emerald-700"
+                >
+                  conditions commerciales
+                </a>{" "}
+                et{" "}
+                <a
+                  href="https://www.anthropic.com/legal/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-emerald-600 underline hover:text-emerald-700"
+                >
+                  politique de confidentialité
+                </a>{" "}
+                d&apos;Anthropic.
               </li>
               <li>
                 <strong>Supabase</strong> — base de données où sont enregistrés les
                 résultats, les informations techniques et les données d&apos;accès
-                décrites ci-dessus. Supabase est établie aux États-Unis ; selon la
-                région d&apos;hébergement de notre projet, les données peuvent être
-                stockées dans l&apos;Union européenne ou hors de l&apos;Union.
+                décrites ci-dessus. Notre projet est hébergé dans l&apos;Union
+                européenne (région eu-west-3, Paris). Supabase étant établie aux
+                États-Unis, un accès depuis un pays hors de l&apos;Union (par
+                exemple pour le support ou la maintenance) ne peut pas être exclu.
               </li>
               <li>
                 <strong>Vercel</strong> — hébergement du site et mesure d&apos;audience
