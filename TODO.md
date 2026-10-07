@@ -97,8 +97,8 @@ version de l'achat** en pièce jointe. Pas de droit UPDATE/DELETE sur `consents`
 (volontaire) ; `contract_confirmations` : SELECT, INSERT, UPDATE seulement.
 - Tout changement de texte de la case = nouvel identifiant dans [app/lib/consent.ts](app/lib/consent.ts) (les
   anciens ne changent jamais) ; toute modification des CGV = nouvelle version figée (voir plus haut).
-- **Durées de conservation à décider** : `consents`, `contract_confirmations` (statut d'envoi, texte envoyé,
-  empreinte du PDF), à inscrire dans la politique de confidentialité.
+- **Durées de conservation** : `consents` et `contract_confirmations` (statut d'envoi, texte envoyé, empreinte
+  du PDF) : 5 ans, annoncés dans la politique de confidentialité (voir « Suppression automatique »).
 - Lignes de test dans `access`, `consents`, `contract_confirmations`, `generations` : à supprimer depuis le
   SQL Editor (aucun DELETE accordé à l'application).
 
@@ -122,25 +122,37 @@ version de l'achat** en pièce jointe. Pas de droit UPDATE/DELETE sur `consents`
 
 Page à jour pour Fiche unique + Pass hebdomadaire (cookie d'accès, email, preuve du consentement, email de
 confirmation, Resend), version du 7 octobre 2026 ([app/confidentialite/page.tsx](app/confidentialite/page.tsx)).
-Marqueurs jaunes restants, à lever :
-- `[À COMPLÉTER : durée à décider]` : durée de conservation des générations en base.
-- `[À COMPLÉTER]` : durée de conservation des données d'accès (email, statut, identifiants Stripe) après la
-  fin de l'accès ; de la preuve du consentement ; de la confirmation de commande.
-- `[À VÉRIFIER]` : base légale de la mesure d'audience (Vercel Analytics) ; région du projet Supabase ; région
-  d'exécution des fonctions Vercel ; localisation du traitement et garanties de transfert hors UE pour
-  Anthropic, Supabase, Vercel, Stripe et Resend ; conditions de rétention et d'usage des données par
-  Anthropic pour l'API.
+**Plus aucun marqueur** : formulations prudentes et standard, rédigées sans relecture juridique. Hypothèses à
+confirmer quand le temps le permet (non bloquant) :
+- **Durées de conservation annoncées** : générations 12 mois ; preuve du consentement et confirmation de
+  commande 5 ans ; données d'accès 12 mois après la fin de l'accès. **Ce sont des engagements publics** : voir
+  « Suppression automatique » ci-dessous.
+- **Resend** : la page affirme que le domaine d'envoi est en région UE (noté « région UE » lors de la
+  configuration) : le vérifier dans le tableau de bord Resend.
+- **Anthropic** : la page reprend, avec la mention « selon les conditions commerciales d'Anthropic », l'absence
+  d'entraînement sur les données de l'API et une conservation limitée : relire les conditions et la page de
+  rétention d'Anthropic en vigueur.
+- **Supabase** : la page reste volontairement générale (région UE ou hors UE). Une fois la région du projet
+  connue (Project settings), la citer précisément.
+- **Vercel** : la page indique une exécution « par défaut aux États-Unis » ; à ajuster si la région des
+  fonctions est changée (ou après une éventuelle migration d'hébergeur).
+- **Transferts hors UE** : formulation générale (clauses contractuelles types et/ou cadre UE–États-Unis, « selon
+  le prestataire »), sans citer de certification précise par prestataire.
 
-## Suppression automatique des anciennes données (non implémentée)
+## Suppression automatique des anciennes données (non implémentée, non bloquant)
 
-Une fois les durées de conservation décidées, supprimer automatiquement les lignes anciennes de
-`generations`, `access`, `consents` et `contract_confirmations`. Le rôle `service_role` n'a le droit DELETE
-sur aucune d'elles (voir [supabase/schema.sql](supabase/schema.sql)) : il faudra l'accorder ou passer par
-une fonction/cron côté Supabase.
+La politique de confidentialité annonce des durées de conservation (voir plus haut). Aucune suppression
+automatique n'existe : supprimer régulièrement (par exemple chaque trimestre, via le SQL Editor) les lignes
+de `generations` de plus de 12 mois, de `access` terminées depuis plus de 12 mois, de `consents` et
+`contract_confirmations` de plus de 5 ans. Première échéance réelle : 12 mois après les premières ventes en
+mode réel. Le rôle `service_role` n'a le droit DELETE sur aucune de ces tables (voir
+[supabase/schema.sql](supabase/schema.sql)) : le faire depuis le SQL Editor, ou accorder le droit / passer
+par une fonction ou un cron côté Supabase.
 
 ## Mentions légales
 
 Page entièrement renseignée dans [app/mentions-legales/page.tsx](app/mentions-legales/page.tsx)
 (éditeur, SIREN/SIRET, RCS, adresse, TVA, hébergeur Vercel, domaine IONOS, contact).
-- À vérifier : un numéro de téléphone est en principe exigé pour un entrepreneur
-  individuel (LCEN, art. 6) — non renseigné pour l'instant
+Pas de numéro de téléphone affiché (choix assumé) : le moyen de contact visible est contact@candiview.fr
+(sections « Éditeur du site » et « Contact »).
+- **Non bloquant** — Téléphone mentions légales : confirmer avec la CCI si obligatoire.

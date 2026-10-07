@@ -7,14 +7,6 @@ export const metadata: Metadata = {
 
 const CONTACT_EMAIL = "contact@candiview.fr";
 
-function Mark({ kind, label }: { kind: "À COMPLÉTER" | "À VÉRIFIER"; label: string }) {
-  return (
-    <mark className="rounded bg-amber-100 px-1 font-semibold text-amber-800">
-      [{kind} : {label}]
-    </mark>
-  );
-}
-
 function MailLink() {
   return (
     <a
@@ -190,11 +182,10 @@ export default function Confidentialite() {
               </li>
               <li>
                 <strong>Mesure d&apos;audience</strong> : intérêt légitime de
-                connaître la fréquentation du site.{" "}
-                <Mark
-                  kind="À VÉRIFIER"
-                  label="base légale retenue pour la mesure d'audience"
-                />
+                connaître la fréquentation du site et l&apos;améliorer. Cette
+                mesure ne repose sur aucun cookie ni identifiant écrit dans ton
+                navigateur (voir plus bas) ; tu peux t&apos;y opposer en nous
+                écrivant.
               </li>
               <li>
                 <strong>Sécurité du service</strong> (par exemple, vérification du
@@ -209,27 +200,30 @@ export default function Confidentialite() {
               Destinataires et sous-traitants
             </h2>
             <p className="mt-2">
-              Nous faisons appel aux prestataires suivants. Pour chacun,
-              l&apos;indication de la localisation du traitement et des garanties
-              de transfert hors Union européenne reste à confirmer.
+              Nous faisons appel aux prestataires suivants. Certains sont
+              établis hors de l&apos;Union européenne, notamment aux États-Unis :
+              tes données peuvent donc être traitées hors de l&apos;Union. Ces
+              transferts sont encadrés par les garanties prévues par le RGPD,
+              selon le prestataire : clauses contractuelles types de la Commission
+              européenne et/ou cadre de protection des données UE–États-Unis.
+              Pour en savoir plus, écris-nous à <MailLink />.
             </p>
             <ul className="mt-3 list-disc space-y-3 pl-5">
               <li>
                 <strong>Anthropic</strong> — génération des questions. Reçoit la
-                fiche de poste et le CV que tu fournis.{" "}
-                <Mark
-                  kind="À VÉRIFIER"
-                  label="localisation du traitement, garanties de transfert hors UE, durée de conservation et usage des données par Anthropic pour l'API"
-                />
+                fiche de poste et le CV que tu fournis. Anthropic est établie aux
+                États-Unis : le traitement peut avoir lieu hors de l&apos;Union
+                européenne. Selon les conditions commerciales d&apos;Anthropic, les
+                données envoyées par l&apos;API ne servent pas à entraîner ses
+                modèles et ne sont conservées que pour une durée limitée, définie
+                par Anthropic.
               </li>
               <li>
                 <strong>Supabase</strong> — base de données où sont enregistrés les
                 résultats, les informations techniques et les données d&apos;accès
-                décrites ci-dessus.{" "}
-                <Mark
-                  kind="À VÉRIFIER"
-                  label="région du projet Supabase et garanties de transfert hors UE"
-                />
+                décrites ci-dessus. Supabase est établie aux États-Unis ; selon la
+                région d&apos;hébergement de notre projet, les données peuvent être
+                stockées dans l&apos;Union européenne ou hors de l&apos;Union.
               </li>
               <li>
                 <strong>Vercel</strong> — hébergement du site et mesure d&apos;audience
@@ -241,11 +235,10 @@ export default function Confidentialite() {
                 >
                   mentions légales
                 </Link>
-                ).{" "}
-                <Mark
-                  kind="À VÉRIFIER"
-                  label="région d'exécution des fonctions et garanties de transfert hors UE"
-                />
+                ). Le code du site s&apos;exécute sur l&apos;infrastructure de Vercel,
+                par défaut aux États-Unis : les données qui transitent par le site
+                (par exemple ton CV lors d&apos;une génération) peuvent donc être
+                traitées hors de l&apos;Union européenne.
               </li>
               <li>
                 <strong>Resend</strong> — envoi de nos emails, depuis une adresse du
@@ -253,22 +246,18 @@ export default function Confidentialite() {
                 (avec les CGV en pièce jointe) après chaque paiement, et l&apos;email de
                 récupération d&apos;accès lorsque tu en fais la demande et qu&apos;un accès
                 valide existe pour cette adresse. Reçoit ton adresse email et le contenu du
-                message.{" "}
-                <Mark
-                  kind="À VÉRIFIER"
-                  label="localisation du traitement (région choisie à la création du compte) et garanties de transfert hors UE"
-                />
+                message. Notre domaine d&apos;envoi est configuré dans la région Union
+                européenne de Resend ; Resend étant établie aux États-Unis, certains
+                traitements annexes peuvent avoir lieu hors de l&apos;Union.
               </li>
               <li>
                 <strong>Stripe</strong> — paiement par carte bancaire (page de
                 paiement sécurisée). Affiche aussi la case de consentement avant le
                 paiement et en enregistre l&apos;acceptation. Collecte les données de
                 paiement sur ses propres pages ; nous ne voyons ni ne stockons les données de carte
-                bancaire.{" "}
-                <Mark
-                  kind="À VÉRIFIER"
-                  label="localisation du traitement et garanties de transfert hors UE"
-                />
+                bancaire. Pour les clients de l&apos;Union européenne, le prestataire
+                est Stripe Payments Europe Limited (Irlande) ; des transferts vers
+                les États-Unis (Stripe, Inc.) sont possibles.
               </li>
             </ul>
           </section>
@@ -395,27 +384,23 @@ export default function Confidentialite() {
             <ul className="mt-2 list-disc space-y-2 pl-5">
               <li>
                 <strong>Résultats générés et informations techniques</strong> (base
-                de données) :{" "}
-                <Mark kind="À COMPLÉTER" label="durée à décider" />
+                de données) : 12 mois à compter de leur création.
               </li>
               <li>
                 <strong>Preuve du consentement avant paiement</strong> (date du
-                paiement, version des CGV, texte de la case, email) :{" "}
-                <Mark kind="À COMPLÉTER" label="durée de conservation de la preuve" />
+                paiement, version des CGV, texte de la case, email) : 5 ans à
+                compter du paiement, pour pouvoir établir ou défendre nos droits en
+                cas de litige.
               </li>
               <li>
                 <strong>Confirmation de commande</strong> (statut d&apos;envoi, texte envoyé,
-                version des CGV, empreinte du fichier joint) :{" "}
-                <Mark
-                  kind="À COMPLÉTER"
-                  label="durée de conservation, à décider avec celle de la preuve du consentement"
-                />
+                version des CGV, empreinte du fichier joint) : 5 ans à compter du
+                paiement, comme la preuve du consentement.
               </li>
               <li>
                 <strong>Données d&apos;accès (Pass hebdomadaire)</strong>{" "}
                 (adresse email, statut, identifiants Stripe) : pendant la durée de
-                l&apos;accès, puis{" "}
-                <Mark kind="À COMPLÉTER" label="durée de conservation après la fin de l'accès" />
+                l&apos;accès, puis 12 mois après sa fin.
               </li>
               <li>
                 <strong>Demandes de récupération d&apos;accès</strong> (empreintes de
